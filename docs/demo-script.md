@@ -1,60 +1,60 @@
-# Guion de demo en vivo (~25–30 min)
+# Live demo script (~25–30 min)
 
-Password común: `backstage`. Abre el dashboard `https://dashboard.apps.<cluster>/` en una pestaña de apoyo.
+Shared password: `backstage`. Keep the dashboard `https://dashboard.apps.<cluster>/` open in a support tab.
 
-## 0. Contexto (2 min)
+## 0. Context (2 min)
 
-Cadena de suministro: **quién** construyó **qué**, **con qué dependencias**, **firmado por quién**, **promovido con qué política**. RHADS une portal (RHDH), firma (RHTAS), inventario (TPA), políticas (Conforma) y runtime (ACS) sobre GitOps.
+Supply chain: **who** built **what**, **with which dependencies**, **signed by whom**, **promoted under which policy**. RHADS joins the portal (RHDH), signing (RHTAS), inventory (TPA), policy (Conforma), and runtime (ACS) on GitOps.
 
-## 1. Portal — crear la app (4 min)
+## 1. Portal — create the app (4 min)
 
-1. Developer Hub → login OIDC Keycloak como **`dev1`**.
-2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay ya rellenado).
-3. Esperar a que el scaffolder publique dos repos y el app-of-apps de Argo CD (`{app}-build`, `{app}-dev`, `{app}-staging`, `{app}-prod`).
-4. El push inicial dispara el pipeline de build (commit **sin** gitsign). Eso carga el **primer SBOM en TPA**.
+1. Developer Hub → Keycloak OIDC login as **`dev1`**.
+2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay already filled in).
+3. Wait for the scaffolder to publish two repos and the Argo CD app-of-apps (`{app}-build`, `{app}-dev`, `{app}-staging`, `{app}-prod`).
+4. The initial push starts the build pipeline (commit **without** gitsign). That loads the **first SBOM into TPA**.
 
-## 2. Inner loop en Dev Spaces (6 min)
+## 2. Inner loop in Dev Spaces (6 min)
 
-1. En el componente del catálogo, **OpenShift Dev Spaces (VS Code)**.
-2. Abrir `pom.xml` → paleta → **Red Hat Dependency Analytics** (CVEs de Maven; las libs salen de Nexus).
-3. En otra pestaña, **Trusted Profile Analyzer** (link del catálogo) y mostrar el SBOM del primer build.
-4. Cambiar un string en un `@Tool` o en `index.html`.
-5. `git commit` — el workspace está configurado con **gitsign** (misma raíz de confianza Fulcio/Rekor que **cosign**). Completar el login OIDC. `git push` a `main`.
-6. El webhook de GitLab arranca el pipeline sobre ese commit firmado.
+1. On the catalog component, **OpenShift Dev Spaces (VS Code)**.
+2. Open `pom.xml` → command palette → **Red Hat Dependency Analytics** (Maven CVEs; libraries come from Nexus).
+3. In another tab, **Trusted Profile Analyzer** (catalog link) and show the SBOM from the first build.
+4. Change a string in a `@Tool` or in `index.html`.
+5. `git commit` — the workspace is configured with **gitsign** (same Fulcio/Rekor trust root as **cosign**). Complete the OIDC login. `git push` to `main`.
+6. The GitLab webhook starts the pipeline on that signed commit.
 
-## 3. Pipeline de build (8 min)
+## 3. Build pipeline (8 min)
 
-En RHDH (pestaña Tekton) o OpenShift → Pipelines. Cada task imprime un bloque `[SSSC]`:
+In RHDH (Tekton tab) or OpenShift → Pipelines. Each task prints an `[SSSC]` block:
 
-| Task | Control de seguridad |
+| Task | Security control |
 | --- | --- |
-| git-clone | fuente desde GitLab |
-| gitsign-verify | firma Sigstore del commit (Fulcio + Rekor) |
-| build-source | Maven/npm **solo** contra Nexus (libs precargadas / proxy) |
-| openshift-build | imagen con **OpenShift Builds** (BuildConfig Docker) → Quay |
-| generate-sbom | inventario Syft CycloneDX + SPDX |
+| git-clone | source from GitLab |
+| gitsign-verify | Sigstore commit signature (Fulcio + Rekor) |
+| build-source | Maven/npm **only** against Nexus (preloaded / proxied libs) |
+| openshift-build | image with **OpenShift Builds** (Docker BuildConfig) → Quay |
+| generate-sbom | Syft CycloneDX + SPDX inventory |
 | sign-image | cosign + Rekor |
-| attest-sbom | SBOM atado al digest (`.att`) |
-| acs-scan / acs-check | CVEs y políticas ACS |
-| upload-tpa | SBOM searchable en TPA |
-| conforma-dev | Enterprise Contract (informe; no STRICT) |
+| attest-sbom | SBOM bound to the digest (`.att`) |
+| acs-scan / acs-check | ACS CVEs and policies |
+| upload-tpa | searchable SBOM in TPA |
+| conforma-dev | Enterprise Contract (report; not STRICT) |
 | update-gitops-dev | GitOps `dev` |
-| chains-status (finally) | Tekton Chains / provenance SLSA |
+| chains-status (finally) | Tekton Chains / SLSA provenance |
 
-Abrir Quay: tag SHA, `.sig`, SBOM. Rekor: UUID. OpenShift → Builds: el BuildConfig `{app}-img`.
+Open Quay: SHA tag, `.sig`, SBOM. Rekor: UUID. OpenShift → Builds: the `{app}-img` BuildConfig.
 
-## 4. Promoción a staging (3 min)
+## 4. Promote to staging (3 min)
 
-GitLab → Repository → Tags → `v1.0.0` sobre el commit **ya construido** (el tag GitLab dispara el pipeline; la imagen sigue etiquetada con el SHA).
+GitLab → Repository → Tags → `v1.0.0` on the commit **already built** (the GitLab tag starts the pipeline; the image stays tagged with the SHA).
 
-`{app}-promote` overlay `staging`: ACS → **Conforma STRICT** → GitOps → comentario en el commit de GitLab.
+`{app}-promote` overlay `staging`: ACS → **Conforma STRICT** → GitOps → comment on the GitLab commit.
 
-## 5. Promoción a producción (3 min)
+## 5. Promote to production (3 min)
 
 GitLab → Deployments → Releases → Release `v1.0.0`.
 
-Mismo pipeline, overlay `prod`, Conforma STRICT. Route de prod y Topology en RHDH.
+Same pipeline, overlay `prod`, Conforma STRICT. Prod route and Topology in RHDH.
 
-## 6. Cierre (2 min)
+## 6. Wrap-up (2 min)
 
-Nexus (`admin` / `admin123`) muestra el caché Maven. Chains está en `TektonConfig/config` (`spec.chain.disabled: false`). Platform engineers evolucionan templates y políticas; developers no tocan YAML de firma ni de ACS.
+Nexus (`admin` / `admin123`) shows the Maven cache. Chains is in `TektonConfig/config` (`spec.chain.disabled: false`). Platform engineers evolve templates and policies; developers never touch signing or ACS YAML.

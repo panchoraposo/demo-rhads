@@ -1,4 +1,16 @@
 ---
+- name: Detect current oc context
+  ansible.builtin.command:
+    cmd: oc config current-context
+  register: oc_current_ctx
+  changed_when: false
+  when: oc_context | default('') | length == 0
+
+- name: Use current oc context
+  ansible.builtin.set_fact:
+    oc_context: "{{ oc_current_ctx.stdout }}"
+  when: oc_context | default('') | length == 0
+
 - name: Get OpenShift Infrastructure config
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
@@ -35,6 +47,7 @@
 - name: Show discovered cluster
   ansible.builtin.debug:
     msg:
+      - "oc context {{ oc_context }}"
       - "API {{ openshift_api_domain }}"
       - "Apps domain {{ openshift_base_domain }}"
       - "GitLab https://{{ gitlab_host }}"

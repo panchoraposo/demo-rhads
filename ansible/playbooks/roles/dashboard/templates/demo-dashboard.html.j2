@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <title>RHADS — Software Supply Chain Demo</title>
@@ -25,13 +25,13 @@
 <body>
 <header>
   <h1>Red Hat Advanced Developer Suite</h1>
-  <p>Demo de seguridad en la cadena de suministro — OpenShift {{ cluster_base_domain }}</p>
+  <p>Software supply chain security demo — OpenShift {{ cluster_base_domain }}</p>
 </header>
 <main>
   <section>
-    <h2>Consolas</h2>
+    <h2>Consoles</h2>
     <table>
-      <tr><th>Producto</th><th>URL</th><th>Usuario</th><th>Password</th></tr>
+      <tr><th>Product</th><th>URL</th><th>Username</th><th>Password</th></tr>
       <tr><td>Developer Hub</td><td><a href="{{ dash_rhdh_url }}">{{ dash_rhdh_url }}</a></td><td>dev1 / pe1</td><td>{{ common_user_password }}</td></tr>
       <tr><td>GitLab CE</td><td><a href="{{ dash_gitlab_url }}">{{ dash_gitlab_url }}</a></td><td>root, dev1, pe1</td><td>{{ gitlab_root_password }}</td></tr>
       <tr><td>Keycloak (RHBK)</td><td><a href="{{ dash_keycloak_url }}">{{ dash_keycloak_url }}</a></td><td>temp-admin</td><td>{{ dash_kc_pass }}</td></tr>
@@ -46,19 +46,19 @@
     </table>
   </section>
   <aside class="card">
-    <h2>Guion en vivo</h2>
+    <h2>Live script</h2>
     <ul>
-      <li>Login en Developer Hub como <code>dev1</code></li>
-      <li>Create → template agentic (Quarkus / Camel / Node.js)</li>
-      <li>Catálogo → OpenShift Dev Spaces → RHDA sobre pom.xml</li>
-      <li>Trusted Profile Analyzer: último SBOM (primer pipeline)</li>
-      <li>Cambio de código + <strong>commit firmado</strong> (gitsign / misma raíz que cosign)</li>
+      <li>Sign in to Developer Hub as <code>dev1</code></li>
+      <li>Create → agentic template (Quarkus / Camel / Node.js)</li>
+      <li>Catalog → OpenShift Dev Spaces → RHDA on pom.xml</li>
+      <li>Trusted Profile Analyzer: latest SBOM (first pipeline)</li>
+      <li>Code change + <strong>signed commit</strong> (gitsign / same trust root as cosign)</li>
       <li>Pipeline: Nexus, OpenShift Builds, SBOM, cosign, Rekor, ACS, TPA, Conforma, Chains</li>
       <li>GitLab <strong>tag</strong> → staging (Conforma STRICT)</li>
       <li>GitLab <strong>release</strong> → production (Conforma STRICT)</li>
     </ul>
   </aside>
 </main>
-<footer>RHADS demo · GitOps + Ansible · repetible en sandboxes OpenShift 4.20+</footer>
+<footer>RHADS demo · GitOps + Ansible · repeatable on OpenShift 4.20+ sandboxes</footer>
 </body>
 </html>

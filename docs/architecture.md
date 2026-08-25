@@ -1,14 +1,14 @@
-# Arquitectura — RHADS software supply chain demo
+# Architecture — RHADS software supply chain demo
 
-## Objetivo
+## Goal
 
-Una plataforma repetible, instalada con Ansible y reconciliada con OpenShift GitOps, para demostrar **seguridad en la cadena de suministro** con Red Hat Advanced Developer Suite sobre OpenShift 4.20+.
+A repeatable platform, installed with Ansible and reconciled by OpenShift GitOps, to demonstrate **software supply chain security** with Red Hat Advanced Developer Suite on OpenShift 4.20+.
 
-## Componentes
+## Components
 
 ```mermaid
 flowchart LR
-  subgraph idp [Identidad]
+  subgraph idp [Identity]
     RHBK[Keycloak RHBK 26.6]
   end
   subgraph portal [Portal]
@@ -55,42 +55,42 @@ flowchart LR
   ACD --> PRD[ns app-prod]
 ```
 
-## Promoción
+## Promotion
 
-| Evento GitLab | Pipeline | Entorno | Conforma |
+| GitLab event | Pipeline | Environment | Conforma |
 | --- | --- | --- | --- |
-| `push` a `main` | `{app}-build` | `{app}-dev` | informe, no bloquea |
+| `push` to `main` | `{app}-build` | `{app}-dev` | report, non-blocking |
 | `tag_push` | `{app}-promote` overlay `staging` | `{app}-staging` | STRICT |
 | `release` create | `{app}-promote` overlay `prod` | `{app}-prod` | STRICT |
 
-Cada pipeline de build:
+Each build pipeline:
 
-1. `git-clone` + `gitsign verify` (RHTAS; el commit de Dev Spaces usa gitsign, misma raíz que cosign)
-2. Maven / npm contra **Nexus** (`maven-public` / `npm-group`)
-3. **OpenShift Builds** (BuildConfig estrategia Docker, binary `--from-dir`) → Quay
+1. `git-clone` + `gitsign verify` (RHTAS; Dev Spaces commits use gitsign, same trust root as cosign)
+2. Maven / npm against **Nexus** (`maven-public` / `npm-group`)
+3. **OpenShift Builds** (BuildConfig Docker strategy, binary `--from-dir`) → Quay
 4. Syft CycloneDX + SPDX
-5. `cosign sign` con clave de demo y **upload a Rekor**
+5. `cosign sign` with the demo key and **upload to Rekor**
 6. `cosign attest` SBOM + `cosign attach sbom`
-7. `roxctl image scan` y `image check` (ACS)
-8. Upload SBOM a Trusted Profile Analyzer
-9. `ec validate image` (Conforma; STRICT en staging/prod)
-10. Commit del digest al overlay GitOps + comentario en GitLab
-11. Tekton Chains firma el PipelineRun (in-toto / SLSA)
+7. `roxctl image scan` and `image check` (ACS)
+8. Upload SBOM to Trusted Profile Analyzer
+9. `ec validate image` (Conforma; STRICT on staging/prod)
+10. Commit the digest to the GitOps overlay + GitLab comment
+11. Tekton Chains signs the PipelineRun (in-toto / SLSA)
 
 ## Software templates
 
-Tres templates en Developer Hub, todos app-of-apps:
+Three Developer Hub templates, all app-of-apps:
 
-- `quarkus-agentic` — MCP server Quarkus (Red Hat build of Quarkus)
+- `quarkus-agentic` — Quarkus MCP server (Red Hat build of Quarkus)
 - `camel-agentic` — Camel Quarkus REST agent
 - `nodejs-agentic` — Express agent
 
-El scaffolder crea:
+The scaffolder creates:
 
-1. Repo de código en el grupo GitLab `developers`
-2. Repo `{app}-gitops` con `argocd/applications.yaml` (build + dev + staging + prod)
-3. Application Argo CD bootstrap sobre `argocd/`
+1. A source repo in the GitLab `developers` group
+2. An `{app}-gitops` repo with `argocd/applications.yaml` (build + dev + staging + prod)
+3. An Argo CD bootstrap Application on `argocd/`
 
-## Recursos (sandbox 1 nodo)
+## Resources (single-node sandbox)
 
-Clair deshabilitado, scanner ACS en 1 réplica, TPA sin tracing/metrics, GitLab all-in-one. Storage de bloques: `gp3-csi`. Object storage: **OpenShift Data Foundation** Multicloud Object Gateway (NooBaa) con el operador **ODF Multicluster Orchestrator (MCO)**; Quay y TPA usan ObjectBucketClaims.
+Clair disabled, ACS scanner at 1 replica, TPA without tracing/metrics, GitLab all-in-one. Block storage: `gp3-csi`. Object storage: **OpenShift Data Foundation** Multicloud Object Gateway (NooBaa) with the **ODF Multicluster Orchestrator (MCO)** operator; Quay and TPA use ObjectBucketClaims.

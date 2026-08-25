@@ -6,14 +6,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT}"
 
 if ! command -v oc >/dev/null 2>&1; then
-  echo "ERROR: oc CLI is required and must be logged in (context devopsdays)." >&2
+  echo "ERROR: oc CLI is required." >&2
   exit 1
 fi
 
-if [[ "$(oc config current-context 2>/dev/null || true)" != "devopsdays" ]]; then
-  echo "Switching kube context to devopsdays..."
-  oc config use-context devopsdays
+if ! oc whoami >/dev/null 2>&1; then
+  echo "ERROR: oc must be logged in to the target cluster. Select your kube context, then rerun." >&2
+  exit 1
 fi
+
+echo "Using oc context: $(oc config current-context)"
 
 if ! command -v helm >/dev/null 2>&1; then
   echo "Installing Helm 3..."

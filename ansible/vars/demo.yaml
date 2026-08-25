@@ -3,7 +3,8 @@
 # Domain names are discovered at runtime from the OpenShift DNS CR.
 # =============================================================================
 
-oc_context: devopsdays
+# oc_context is discovered from `oc config current-context` unless overridden
+# with -e oc_context=<name>.
 storage_class: gp3-csi
 validate_ssl_certs: false
 common_user_password: "backstage"
