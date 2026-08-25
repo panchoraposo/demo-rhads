@@ -1,0 +1,41 @@
+---
+- name: Get OpenShift Infrastructure config
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Infrastructure
+    name: cluster
+  register: infra_config
+
+- name: Get OpenShift DNS config
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: DNS
+    name: cluster
+  register: dns_config
+
+- name: Set dynamic cluster variables
+  ansible.builtin.set_fact:
+    openshift_api_domain: "{{ infra_config.resources[0].status.apiServerURL }}"
+    openshift_base_domain: "apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    cluster_base_domain: "{{ dns_config.resources[0].spec.baseDomain }}"
+    gitlab_host: "gitlab-gitlab.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    gitlab_hostname: "gitlab-gitlab.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    keycloak_hostname: "sso.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    keycloak_issuer_url: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}"
+    keycloak_authorization_endpoint: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}/protocol/openid-connect/auth"
+    keycloak_token_endpoint: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}/protocol/openid-connect/token"
+    keycloak_userinfo_endpoint: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}/protocol/openid-connect/userinfo"
+    keycloak_jwks_uri: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}/protocol/openid-connect/certs"
+    gitlab_base_url: "https://gitlab-gitlab.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    quay_host: "quay-quay.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    rhdh_host: "backstage-developer-hub-backstage.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    tpa_app_domain: ".apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    repo_root: "{{ playbook_dir }}/../.."
+
+- name: Show discovered cluster
+  ansible.builtin.debug:
+    msg:
+      - "API {{ openshift_api_domain }}"
+      - "Apps domain {{ openshift_base_domain }}"
+      - "GitLab https://{{ gitlab_host }}"
+      - "Keycloak https://{{ keycloak_hostname }}"

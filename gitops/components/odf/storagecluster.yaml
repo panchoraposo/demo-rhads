@@ -1,0 +1,35 @@
+# MCG-only StorageCluster: S3-compatible object storage without Ceph OSDs.
+# Suitable for a single-node demo. Backed by gp3-csi PVCs.
+apiVersion: ocs.openshift.io/v1
+kind: StorageCluster
+metadata:
+  name: ocs-storagecluster
+  namespace: openshift-storage
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    cluster.open-cluster-management.io/backup: resource
+spec:
+  resourceProfile: lean
+  multiCloudGateway:
+    reconcileStrategy: standalone
+    dbStorageClassName: gp3-csi
+    disableLoadBalancerService: true
+  resources:
+    noobaa-core:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        memory: 4Gi
+    noobaa-db:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    noobaa-endpoint:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        memory: 2Gi

@@ -1,0 +1,29 @@
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: devspaces
+  namespace: openshift-devspaces
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  components:
+    cheServer: {}
+    dashboard: {}
+    devfileRegistry: {}
+    pluginRegistry: {}
+  containerRegistry: {}
+  devEnvironments:
+    defaultEditor: che-incubator/che-code/latest
+    disableContainerBuildCapabilities: false
+    maxNumberOfRunningWorkspacesPerUser: 2
+    maxNumberOfWorkspacesPerUser: 5
+    defaultNamespace:
+      autoProvision: true
+      template: <username>-devspaces
+    defaultPlugins:
+      - editor: che-incubator/che-code/latest
+        plugins:
+          - https://open-vsx.org/vscode/item?itemName=redhat.fabric8-analytics
+          - https://open-vsx.org/vscode/item?itemName=redhat.java
+  gitServices: {}
+  networking: {}

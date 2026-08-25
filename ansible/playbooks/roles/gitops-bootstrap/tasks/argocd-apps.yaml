@@ -1,0 +1,66 @@
+---
+- name: Create Argo CD Application for operators
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: rhads-operators
+        namespace: "{{ gitops_namespace }}"
+        labels:
+          app.kubernetes.io/part-of: rhads-demo
+      spec:
+        project: default
+        source:
+          repoURL: "{{ git_repo_url }}"
+          targetRevision: "{{ git_target_revision }}"
+          path: gitops/platform/operators
+        destination:
+          server: https://kubernetes.default.svc
+        syncPolicy:
+          automated:
+            prune: false
+            selfHeal: true
+          syncOptions:
+            - CreateNamespace=true
+            - ServerSideApply=true
+
+- name: Create Argo CD Applications for components
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: "rhads-{{ item.name }}"
+        namespace: "{{ gitops_namespace }}"
+        labels:
+          app.kubernetes.io/part-of: rhads-demo
+      spec:
+        project: default
+        source:
+          repoURL: "{{ git_repo_url }}"
+          targetRevision: "{{ git_target_revision }}"
+          path: "{{ item.path }}"
+        destination:
+          server: https://kubernetes.default.svc
+          namespace: "{{ item.ns | default('default') }}"
+        syncPolicy:
+          automated:
+            prune: false
+            selfHeal: true
+          syncOptions:
+            - CreateNamespace=true
+            - SkipDryRunOnMissingResource=true
+  loop:
+    - { name: minio, path: gitops/components/minio, ns: minio }
+    - { name: odf, path: gitops/components/odf, ns: openshift-storage }
+    - { name: keycloak, path: gitops/components/keycloak, ns: keycloak }
+    - { name: rhtas, path: gitops/components/rhtas, ns: trusted-artifact-signer }
+    - { name: rhtpa, path: gitops/components/rhtpa, ns: trusted-profile-analyzer }
+    - { name: rhacs, path: gitops/components/rhacs, ns: stackrox }
+    - { name: pipelines, path: gitops/components/pipelines, ns: rhads-ci }
+    - { name: nexus, path: gitops/components/nexus, ns: nexus }
+    - { name: devspaces, path: gitops/components/devspaces, ns: openshift-devspaces }
+    - { name: quay-ns, path: gitops/components/quay, ns: quay }

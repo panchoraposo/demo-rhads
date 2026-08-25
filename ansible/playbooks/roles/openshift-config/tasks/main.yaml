@@ -1,0 +1,3 @@
+---
+- name: Discover OpenShift cluster domain
+  include_tasks: set-vars.yaml

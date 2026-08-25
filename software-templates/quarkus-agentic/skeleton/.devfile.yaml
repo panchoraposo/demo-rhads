@@ -1,0 +1,61 @@
+schemaVersion: 2.2.0
+metadata:
+  name: ${{values.component_id}}
+  displayName: ${{values.component_id}}
+  description: ${{values.description}}
+  tags: [Java, Quarkus, Maven]
+  projectType: quarkus
+attributes:
+  controller.devfile.io/storage-type: per-workspace
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:latest
+      memoryLimit: 6Gi
+      mountSources: true
+      endpoints:
+        - name: quarkus-dev
+          targetPort: 8080
+      env:
+        - name: MAVEN_OPTS
+          value: "-Xmx1g"
+        - name: MAVEN_ARGS
+          value: "-s .mvn/settings.xml"
+        - name: GITSIGN_FULCIO_URL
+          value: https://fulcio-server-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_REKOR_URL
+          value: https://rekor-server-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_OIDC_ISSUER
+          value: https://sso.${{values.cluster_subdomain}}/realms/backstage
+        - name: GITSIGN_OIDC_CLIENT_ID
+          value: trusted-artifact-signer
+        - name: CLUSTER_SUBDOMAIN
+          value: ${{values.cluster_subdomain}}
+commands:
+  - id: setup-gitsign
+    exec:
+      label: Configure Sigstore git commit signing (gitsign / cosign trust root)
+      component: tools
+      commandLine: bash .devcontainer/setup-gitsign.sh
+      workingDir: ${PROJECT_SOURCE}
+  - id: package
+    exec:
+      label: Maven package (Nexus)
+      component: tools
+      commandLine: ./mvnw -s .mvn/settings.xml -DskipTests package
+      workingDir: ${PROJECT_SOURCE}
+  - id: rhda
+    exec:
+      label: Open pom.xml for Red Hat Dependency Analytics
+      component: tools
+      commandLine: echo "Open pom.xml and run the Red Hat Dependency Analytics (RHDA) command from the VS Code palette."
+      workingDir: ${PROJECT_SOURCE}
+  - id: dev
+    exec:
+      label: Quarkus dev
+      component: tools
+      commandLine: ./mvnw -s .mvn/settings.xml quarkus:dev
+      workingDir: ${PROJECT_SOURCE}
+events:
+  postStart:
+    - setup-gitsign

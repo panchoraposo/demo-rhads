@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rhads-enable-tekton-chains
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: rhads-chains
+      containers:
+        - name: enable
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[SSSC] Enabling Tekton Chains on TektonConfig/config"
+              oc get tektonconfig config >/dev/null
+              oc patch tektonconfig config --type merge -p '{"spec":{"chain":{"disabled":false}}}' || \
+                oc patch tektonconfig config --type json -p '[{"op":"add","path":"/spec/chain","value":{"disabled":false}}]'
+              echo "--- populate openshift-pipelines/signing-secrets from rhads-ci/cosign-signing-key ---"
+              if oc -n openshift-pipelines get secret signing-secrets -o jsonpath='{.data.cosign\.key}' 2>/dev/null | grep -q .; then
+                echo "signing-secrets already has cosign.key"
+              elif oc -n rhads-ci get secret cosign-signing-key >/dev/null 2>&1; then
+                oc extract secret/cosign-signing-key -n rhads-ci --to=/tmp/cosign --confirm
+                PASSWORD="rhads"
+                if [ -f /tmp/cosign/cosign.password ]; then
+                  PASSWORD="$(cat /tmp/cosign/cosign.password)"
+                fi
+                oc -n openshift-pipelines set data secret/signing-secrets \
+                  --from-file=cosign.key=/tmp/cosign/cosign.key \
+                  --from-file=cosign.pub=/tmp/cosign/cosign.pub \
+                  --from-literal=cosign.password="${PASSWORD}"
+              else
+                echo "WARN: rhads-ci/cosign-signing-key missing; Chains cannot sign yet"
+              fi
+              DOMAIN="$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')"
+              REKOR="https://rekor-server-trusted-artifact-signer.${DOMAIN}"
+              echo "Rekor: ${REKOR}"
+              echo "--- TektonConfig spec.chain (operator-managed) ---"
+              oc patch tektonconfig config --type merge -p "{
+                \"spec\": {
+                  \"chain\": {
+                    \"disabled\": false,
+                    \"artifacts.taskrun.format\": \"in-toto\",
+                    \"artifacts.taskrun.storage\": \"tekton\",
+                    \"artifacts.pipelinerun.format\": \"in-toto\",
+                    \"artifacts.pipelinerun.storage\": \"tekton\",
+                    \"artifacts.oci.format\": \"simplesigning\",
+                    \"artifacts.oci.storage\": \"oci\",
+                    \"transparency.enabled\": \"true\",
+                    \"transparency.url\": \"${REKOR}\"
+                  }
+                }
+              }"
+              oc -n openshift-pipelines rollout restart deploy/tekton-chains-controller 2>/dev/null \
+                || oc -n openshift-pipelines delete pod -l app=tekton-chains-controller --wait=false || true
+              echo "PASS: Tekton Chains enabled (in-toto on TaskRun/PipelineRun stored as Tekton annotations, Rekor transparency)"
+              oc get tektonconfig config -o jsonpath='{.spec.chain}{"\n"}'

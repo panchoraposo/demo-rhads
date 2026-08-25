@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rhads-build.name" . }}-webhook
+data:
+  create.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    HOST="{{ .Values.git.host }}"
+    REPO="{{ .Values.git.repo }}"
+    # Helm token only if provided; otherwise keep TOKEN from the gitlab-token secret env.
+    HELM_TOKEN="{{ .Values.git.token | default "" }}"
+    if [ -n "${HELM_TOKEN}" ]; then
+      TOKEN="FAKESECRET_u2v3w4x5y6z7a8b9c0d1"
+    fi
+    : "${TOKEN:?gitlab-token secret is missing or empty}"
+    EL="https://{{ include "rhads-build.name" . }}-el-{{ .Release.Namespace }}.{{ .Values.cluster.subdomain }}"
+    PROJECT_PATH="$(echo "${REPO}" | sed 's#https://'"${HOST}"'/##' | sed 's#\.git$##' | sed 's#/#%2F#g')"
+    curl -skf --header "PRIVATE-TOKEN: ${TOKEN}" \
+      -X POST "https://${HOST}/api/v4/projects/${PROJECT_PATH}/hooks" \
+      --data-urlencode "url=${EL}" \
+      --data "push_events=true" \
+      --data "tag_push_events=true" \
+      --data "releases_events=true" \
+      --data "enable_ssl_verification=false"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "rhads-build.name" . }}-webhook
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 8
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: hook
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command: ["/bin/bash", "/scripts/create.sh"]
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab-token
+                  key: token
+                  optional: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "rhads-build.name" . }}-webhook
+            defaultMode: 0755

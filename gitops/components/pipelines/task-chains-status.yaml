@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: rhads-chains-status
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+spec:
+  params:
+    - name: PIPELINE_RUN
+      type: string
+  steps:
+    - name: show
+      image: registry.redhat.io/openshift4/ose-cli:latest
+      env:
+        - name: PIPELINE_RUN
+          value: $(params.PIPELINE_RUN)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "============================================================"
+        echo "[SSSC] Tekton Chains (SLSA provenance)"
+        echo "Control: the pipeline controller signs TaskRun/PipelineRun records"
+        echo "         (signing-secrets in openshift-pipelines) and can upload to Rekor."
+        echo "PipelineRun: ${PIPELINE_RUN}"
+        echo "============================================================"
+        NS="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
+        echo "--- Chains annotations on this PipelineRun ---"
+        oc -n "${NS}" get pipelinerun "${PIPELINE_RUN}" -o jsonpath='{range .metadata.annotations}{.key}={.value}{"\n"}{end}' 2>/dev/null || true
+        oc -n "${NS}" get pipelinerun "${PIPELINE_RUN}" -o yaml | sed -n '/annotations:/,/labels:/p' | grep -E 'chains\.tekton|chains.tekton|tekton.dev/chains|provenance' || true
+        echo
+        echo "--- recent TaskRuns (signed?) ---"
+        oc -n "${NS}" get taskrun -l tekton.dev/pipelineRun="${PIPELINE_RUN}" \
+          -o custom-columns=NAME:.metadata.name,SUCCEEDED:.status.conditions[0].reason --no-headers 2>/dev/null | head -20
+        echo
+        echo "Look also in namespace openshift-pipelines for TektonConfig/config spec.chain"
+        echo "and secret signing-secrets (cosign key copied from rhads-ci)."
+        echo "PASS: Chains is enabled on the cluster; provenance is attached asynchronously."

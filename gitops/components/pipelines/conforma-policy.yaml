@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rhads-conforma-policy
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+data:
+  policy.yaml: |
+    ---
+    sources:
+      - policy:
+          - github.com/conforma/policy//policy/release?ref=v0.7.0
+        config:
+          include:
+            - attestation_task_bundle
+            - slsa_source_version_controlled
+            - slsa_build_scripted_build
+            - source_image
+          exclude: []
+    description: >
+      Demo Conforma policy for RHADS. Pipelines generate a signed image, SBOM
+      attestation and Rekor entry. Promotion to staging/production runs this
+      policy; STRICT=true on the production pipeline.

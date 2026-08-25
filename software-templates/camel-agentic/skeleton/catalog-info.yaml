@@ -1,0 +1,31 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{values.component_id | dump}}
+  description: ${{values.description | dump}}
+  annotations:
+    argocd/app-selector: rht-gitops.com/${{ values.gitops_namespace }}=${{values.component_id}}
+    argocd/instance-name: main
+    backstage.io/kubernetes-id: ${{values.component_id}}
+    backstage.io/kubernetes-cluster: demo-cluster
+    backstage.io/kubernetes-namespace: ${{values.namespace}}
+    janus-idp.io/tekton: ${{values.component_id}}
+    tekton.dev/cicd: "true"
+    quay.io/repository-slug: 'rhads/${{values.component_id}}'
+    backstage.io/source-location: url:https://${{values.host}}/${{values.destination}}
+    gitlab.com/project-slug: ${{values.destination}}
+  tags: [camel, java, agentic]
+  links:
+    - url: https://devspaces.${{values.cluster_subdomain}}/#https://${{values.host}}/${{values.destination}}
+      title: OpenShift Dev Spaces
+      icon: web
+    - url: https://server.${{values.cluster_subdomain}}/
+      title: Trusted Profile Analyzer (latest SBOM)
+      icon: catalog
+    - url: https://console-openshift-console.${{values.cluster_subdomain}}/k8s/ns/${{values.namespace}}/tekton.dev~v1~Pipeline
+      title: Tekton pipelines
+      icon: catalog
+spec:
+  type: service
+  lifecycle: development
+  owner: group:default/developers

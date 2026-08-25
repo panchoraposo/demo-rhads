@@ -1,0 +1,55 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: rhads-acs-image-check
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+spec:
+  params:
+    - name: IMAGE
+      type: string
+  steps:
+    - name: check
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:3c71bc204142a2d89e7c0a6c02aec582c0f21b7072c0558008d8ceaad0b6bc1d
+      env:
+        - name: IMAGE
+          value: $(params.IMAGE)
+        - name: ROX_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: acs-ci
+              key: api-token
+              optional: true
+        - name: ROX_CENTRAL_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: acs-ci
+              key: central-host
+              optional: true
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "============================================================"
+        echo "[SSSC] ACS deploy-time policy check"
+        echo "Control: cluster policies (privilege, registries, CVEs) against this digest."
+        echo "Image:   ${IMAGE}"
+        echo "Central: ${ROX_CENTRAL_ADDRESS:-<not set>}"
+        echo "============================================================"
+        if [ -z "${ROX_API_TOKEN:-}" ] || [ -z "${ROX_CENTRAL_ADDRESS:-}" ]; then
+          echo "WARN: ACS secret acs-ci missing; skipping policy check"
+          exit 0
+        fi
+        export ROX_INSECURE_CLIENT=true
+        echo "--- roxctl image check ---"
+        roxctl image check \
+          --image="${IMAGE}" \
+          -e "${ROX_CENTRAL_ADDRESS}" \
+          --insecure-skip-tls-verify \
+          -o table || {
+            echo
+            echo "WARN: ACS policy check returned findings (shown above)."
+            exit 0
+          }
+        echo
+        echo "PASS: ACS image check completed."

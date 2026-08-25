@@ -1,0 +1,34 @@
+- hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../vars/demo.yaml
+  tasks:
+    - name: Delete Argo CD Applications
+      kubernetes.core.k8s:
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        namespace: "{{ gitops_namespace }}"
+        state: absent
+      ignore_errors: true
+
+    - name: Delete demo namespaces
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - gitlab
+        - backstage
+        - keycloak
+        - quay
+        - minio
+        - openshift-storage
+        - trusted-artifact-signer
+        - trusted-profile-analyzer
+        - stackrox
+        - rhads-ci
+        - nexus
+        - openshift-devspaces
+        - dashboard
+      ignore_errors: true

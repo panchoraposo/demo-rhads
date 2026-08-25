@@ -1,0 +1,161 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: quarkus-agentic
+  title: Agentic app — Quarkus MCP
+  description: Quarkus MCP server. Demo path: Developer Hub → Dev Spaces (RHDA + gitsign) → TPA SBOM → signed commit → OpenShift Builds + Nexus + Tekton Chains → GitLab tag/release with Conforma.
+  tags:
+    - recommended
+    - quarkus
+    - java
+    - agentic
+    - rhads
+spec:
+  owner: group:default/developers
+  type: service
+  parameters:
+    - title: Application
+      required: [component_id, java_package_name, owner]
+      properties:
+        component_id:
+          title: Name
+          type: string
+          default: quarkus-agent
+          ui:field: EntityNamePicker
+          maxLength: 18
+        group_id:
+          title: Maven Group Id
+          type: string
+          default: com.rhads
+        artifact_id:
+          title: Maven Artifact Id
+          type: string
+          default: quarkus-agent
+        java_package_name:
+          title: Java package
+          type: string
+          default: com.rhads.agent
+        description:
+          title: Description
+          type: string
+          default: Agentic Quarkus MCP service secured by RHADS
+        owner:
+          title: Owner
+          type: string
+          default: developers
+    - title: Image registry
+      required: [image_registry]
+      properties:
+        image_registry:
+          title: Image Registry
+          type: string
+          enum: [Quay]
+          default: Quay
+        image_host:
+          title: Quay host
+          type: string
+          default: QUAY_HOST_PLACEHOLDER
+        image_tag:
+          title: Image tag
+          type: string
+          default: latest
+    - title: GitLab
+      required: [repo, gitlab_group]
+      properties:
+        repo:
+          title: Repository Location
+          type: object
+          properties:
+            host:
+              title: GitLab host
+              type: string
+              default: GITLAB_HOST_PLACEHOLDER
+        gitlab_group:
+          title: GitLab group
+          type: string
+          default: developers
+  steps:
+    - id: template
+      name: Fetch source skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          component_id: ${{ parameters.component_id }}
+          description: ${{ parameters.description }}
+          namespace: ${{ parameters.component_id }}-dev
+          group_id: ${{ parameters.group_id }}
+          artifact_id: ${{ parameters.artifact_id }}
+          java_package_name: ${{ parameters.java_package_name }}
+          owner: ${{ parameters.owner }}
+          gitlab_group: ${{ parameters.gitlab_group }}
+          host: ${{ parameters.repo.host }}
+          destination: ${{ parameters.gitlab_group }}/${{ parameters.component_id }}
+          gitops_namespace: openshift-gitops
+          cluster_subdomain: CLUSTER_SUBDOMAIN_PLACEHOLDER
+          image_organization: rhads
+          port: 8080
+        targetPath: ./${{ parameters.gitlab_group }}-${{ parameters.component_id }}
+    - id: publish
+      name: Publish source to GitLab
+      action: publish:gitlab
+      input:
+        repoUrl: "${{ parameters.repo.host }}?owner=${{ parameters.gitlab_group }}&repo=${{ parameters.component_id }}"
+        repoVisibility: public
+        defaultBranch: main
+        sourcePath: ./${{ parameters.gitlab_group }}-${{ parameters.component_id }}
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+    - id: template-gitops
+      name: Generate GitOps (app of apps)
+      action: fetch:template
+      input:
+        url: ./manifests
+        values:
+          component_id: ${{ parameters.component_id }}
+          source_repository_gitops: https://${{ parameters.repo.host }}/${{ parameters.owner }}/${{ parameters.component_id }}-gitops.git
+          source_repository: https://${{ parameters.repo.host }}/${{ parameters.gitlab_group }}/${{ parameters.component_id }}.git
+          owner: ${{ parameters.owner }}
+          namespace: ${{ parameters.component_id }}-dev
+          image_registry: ${{ parameters.image_registry }}
+          image_host: ${{ parameters.image_host }}
+          image_organization: rhads
+          image_password: backstage
+          image_name: ${{ parameters.component_id }}
+          image_tag: ${{ parameters.image_tag }}
+          gitops_namespace: openshift-gitops
+          gitops_project: default
+          port: 8080
+          cluster_subdomain: CLUSTER_SUBDOMAIN_PLACEHOLDER
+          repository_host: ${{ parameters.repo.host }}
+          dockerfile: ./src/main/docker/Dockerfile.jvm
+          build_language: maven
+        targetPath: ./${{ parameters.owner }}-${{ parameters.component_id }}-gitops
+    - id: publish-gitops
+      name: Publish GitOps repository
+      action: publish:gitlab
+      input:
+        repoUrl: "${{ parameters.repo.host }}?owner=${{ parameters.owner }}&repo=${{ parameters.component_id }}-gitops"
+        repoVisibility: public
+        defaultBranch: main
+        sourcePath: ./${{ parameters.owner }}-${{ parameters.component_id }}-gitops
+    - id: create-argocd
+      name: Create Argo CD app-of-apps
+      action: argocd:create-resources
+      input:
+        appName: ${{ parameters.component_id }}-bootstrap
+        argoInstance: main
+        namespace: openshift-gitops
+        repoUrl: https://${{ parameters.repo.host }}/${{ parameters.owner }}/${{ parameters.component_id }}-gitops.git
+        path: argocd/
+  output:
+    links:
+      - title: Source repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

@@ -1,0 +1,62 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: rhads-acs-image-scan
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+spec:
+  params:
+    - name: IMAGE
+      type: string
+    - name: FAIL_ON
+      type: string
+      default: Critical
+  steps:
+    - name: scan
+      image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:3c71bc204142a2d89e7c0a6c02aec582c0f21b7072c0558008d8ceaad0b6bc1d
+      env:
+        - name: IMAGE
+          value: $(params.IMAGE)
+        - name: FAIL_ON
+          value: $(params.FAIL_ON)
+        - name: ROX_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: acs-ci
+              key: api-token
+              optional: true
+        - name: ROX_CENTRAL_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: acs-ci
+              key: central-host
+              optional: true
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "============================================================"
+        echo "[SSSC] ACS image scan (CVEs)"
+        echo "Control: Advanced Cluster Security inspects the pushed digest."
+        echo "Image:    ${IMAGE}"
+        echo "Fail on:  ${FAIL_ON}"
+        echo "Central:  ${ROX_CENTRAL_ADDRESS:-<not set>}"
+        echo "============================================================"
+        if [ -z "${ROX_API_TOKEN:-}" ] || [ -z "${ROX_CENTRAL_ADDRESS:-}" ]; then
+          echo "WARN: ACS secret acs-ci missing; skipping scan"
+          exit 0
+        fi
+        export ROX_INSECURE_CLIENT=true
+        echo "--- roxctl image scan ---"
+        roxctl image scan \
+          --image="${IMAGE}" \
+          -e "${ROX_CENTRAL_ADDRESS}" \
+          --insecure-skip-tls-verify \
+          --fail-on="${FAIL_ON}" \
+          -o table || {
+            echo
+            echo "WARN: ACS reported findings at or above ${FAIL_ON} (demo continues; promotion uses policy check)."
+            exit 0
+          }
+        echo
+        echo "PASS: ACS image scan completed."

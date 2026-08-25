@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: rhads-software-templates
+spec:
+  type: url
+  targets:
+    - ../software-templates/quarkus-agentic/template.yaml
+    - ../software-templates/camel-agentic/template.yaml
+    - ../software-templates/nodejs-agentic/template.yaml

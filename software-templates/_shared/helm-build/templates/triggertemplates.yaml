@@ -1,0 +1,132 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: {{ include "rhads-build.name" . }}-build
+spec:
+  params:
+    - name: git-revision
+    - name: git-repo-url
+    - name: image-tag
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: {{ include "rhads-build.name" . }}-build-
+        labels:
+          backstage.io/kubernetes-id: {{ include "rhads-build.name" . }}
+          tekton.dev/pipeline: {{ include "rhads-build.name" . }}-build
+      spec:
+        pipelineRef:
+          name: {{ include "rhads-build.name" . }}-build
+        # Tekton 1.16+/Pipelines 1.23 dropped spec.serviceAccountName and spec.podTemplate
+        # on PipelineRun. emptyDir workspaces are per-TaskRun, so source must be a PVC.
+        taskRunTemplate:
+          serviceAccountName: pipeline
+          podTemplate:
+            securityContext:
+              fsGroup: 65532
+        params:
+          - { name: source-repo, value: $(tt.params.git-repo-url) }
+          - { name: source-branch, value: $(tt.params.git-revision) }
+          - { name: image-tag, value: $(tt.params.image-tag) }
+          - { name: output-image, value: {{ include "image.dev-url" . | quote }} }
+          - { name: gitops-repo, value: {{ .Values.git.gitopsRepo | quote }} }
+          - { name: component-id, value: {{ include "rhads-build.name" . | quote }} }
+        workspaces:
+          - name: source-folder
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 2Gi
+          - name: maven-settings
+            configMap:
+              name: rhads-maven-settings
+          - name: docker-config
+            secret:
+              secretName: quay-dockerconfig
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: {{ include "rhads-build.name" . }}-promote-staging
+spec:
+  params:
+    - name: image-tag
+    - name: git-repo-url
+    - name: git-ref
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: {{ include "rhads-build.name" . }}-staging-
+        labels:
+          backstage.io/kubernetes-id: {{ include "rhads-build.name" . }}
+      spec:
+        pipelineRef:
+          name: {{ include "rhads-build.name" . }}-promote
+        taskRunTemplate:
+          serviceAccountName: pipeline
+          podTemplate:
+            securityContext:
+              fsGroup: 65532
+        params:
+          - { name: image-tag, value: $(tt.params.image-tag) }
+          - { name: overlay, value: staging }
+          - { name: strict, value: "true" }
+          - { name: output-image, value: {{ include "image.dev-url" . | quote }} }
+          - { name: gitops-repo, value: {{ .Values.git.gitopsRepo | quote }} }
+          - { name: source-repo, value: $(tt.params.git-repo-url) }
+          - { name: git-ref, value: $(tt.params.git-ref) }
+          - { name: component-id, value: {{ include "rhads-build.name" . | quote }} }
+        workspaces:
+          - name: source-folder
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 1Gi
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: {{ include "rhads-build.name" . }}-promote-prod
+spec:
+  params:
+    - name: image-tag
+    - name: git-repo-url
+    - name: git-ref
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: {{ include "rhads-build.name" . }}-prod-
+        labels:
+          backstage.io/kubernetes-id: {{ include "rhads-build.name" . }}
+      spec:
+        pipelineRef:
+          name: {{ include "rhads-build.name" . }}-promote
+        taskRunTemplate:
+          serviceAccountName: pipeline
+          podTemplate:
+            securityContext:
+              fsGroup: 65532
+        params:
+          - { name: image-tag, value: $(tt.params.image-tag) }
+          - { name: overlay, value: prod }
+          - { name: strict, value: "true" }
+          - { name: output-image, value: {{ include "image.dev-url" . | quote }} }
+          - { name: gitops-repo, value: {{ .Values.git.gitopsRepo | quote }} }
+          - { name: source-repo, value: $(tt.params.git-repo-url) }
+          - { name: git-ref, value: $(tt.params.git-ref) }
+          - { name: component-id, value: {{ include "rhads-build.name" . | quote }} }
+        workspaces:
+          - name: source-folder
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 1Gi

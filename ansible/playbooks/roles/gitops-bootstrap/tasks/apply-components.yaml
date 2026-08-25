@@ -1,0 +1,176 @@
+---
+- name: Drop leftover MinIO (object storage is ODF MCG / NooBaa)
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n minio scale deploy/minio --replicas=0
+  failed_when: false
+  changed_when: true
+
+- name: Apply ODF StorageCluster and ObjectBucketClaims
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/odf
+  register: apply_odf
+  retries: 20
+  delay: 20
+  until: apply_odf.rc == 0
+  changed_when: true
+
+- name: Apply Keycloak PostgreSQL
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/keycloak
+  changed_when: true
+
+- name: Create Keycloak TLS secret with cert-manager / openssl
+  ansible.builtin.include_tasks: keycloak-tls.yaml
+
+- name: Render and apply Keycloak instance
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'keycloak-instance.yaml.j2') | from_yaml }}"
+
+- name: Point Keycloak Routes at HTTP so edge TLS on the router works
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for r in $(oc --context {{ oc_context }} -n keycloak get route -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
+      oc --context {{ oc_context }} -n keycloak patch route "$r" --type=merge \
+        -p '{"spec":{"port":{"targetPort":"http"}}}'
+    done
+  args:
+    executable: /bin/bash
+  register: patch_kc_route
+  retries: 20
+  delay: 10
+  until: patch_kc_route.rc == 0
+  failed_when: false
+
+- name: Ensure GitLab namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ gitlab_namespace }}"
+
+- name: Ensure GitLab rails encryption keys (never overwrite existing)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    ctx={{ oc_context }}
+    ns={{ gitlab_namespace }}
+    if oc --context "$ctx" -n "$ns" get secret gitlab-rails-keys >/dev/null 2>&1; then
+      exit 0
+    fi
+    db=$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_SECRETS_DB_KEY_BASE}' 2>/dev/null | base64 -d || true)
+    if [ "${#db}" -ge 32 ]; then
+      oc --context "$ctx" -n "$ns" create secret generic gitlab-rails-keys \
+        --from-literal=GITLAB_SECRETS_DB_KEY_BASE="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_SECRETS_DB_KEY_BASE}' | base64 -d)" \
+        --from-literal=GITLAB_SECRETS_OTP_KEY_BASE="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_SECRETS_OTP_KEY_BASE}' | base64 -d)" \
+        --from-literal=GITLAB_SECRETS_SECRET_KEY_BASE="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_SECRETS_SECRET_KEY_BASE}' | base64 -d)" \
+        --from-literal=GITLAB_SECRETS_ENCRYPTED_SETTINGS_KEY_BASE="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_SECRETS_ENCRYPTED_SETTINGS_KEY_BASE}' | base64 -d)" \
+        --from-literal=GITLAB_AR_PRIMARY_KEY="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_AR_PRIMARY_KEY}' | base64 -d)" \
+        --from-literal=GITLAB_AR_DETERMINISTIC_KEY="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_AR_DETERMINISTIC_KEY}' | base64 -d)" \
+        --from-literal=GITLAB_AR_SALT="$(oc --context "$ctx" -n "$ns" get secret gitlab-secret -o jsonpath='{.data.GITLAB_AR_SALT}' | base64 -d)"
+      exit 0
+    fi
+    oc --context "$ctx" -n "$ns" create secret generic gitlab-rails-keys \
+      --from-literal=GITLAB_SECRETS_DB_KEY_BASE="$(openssl rand -hex 64)" \
+      --from-literal=GITLAB_SECRETS_OTP_KEY_BASE="$(openssl rand -hex 64)" \
+      --from-literal=GITLAB_SECRETS_SECRET_KEY_BASE="$(openssl rand -hex 64)" \
+      --from-literal=GITLAB_SECRETS_ENCRYPTED_SETTINGS_KEY_BASE="$(openssl rand -hex 64)" \
+      --from-literal=GITLAB_AR_PRIMARY_KEY="$(openssl rand -hex 32)" \
+      --from-literal=GITLAB_AR_DETERMINISTIC_KEY="$(openssl rand -hex 32)" \
+      --from-literal=GITLAB_AR_SALT="$(openssl rand -hex 32)"
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+- name: Remove sameersbn GitLab data (incompatible with omnibus 19)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    oc --context {{ oc_context }} -n {{ gitlab_namespace }} scale deploy/gitlab --replicas=0 || true
+    oc --context {{ oc_context }} -n {{ gitlab_namespace }} delete pvc gitlab-persistent-storage --ignore-not-found --wait=false
+  args:
+    executable: /bin/bash
+  failed_when: false
+  changed_when: true
+
+- name: Render GitLab Helm values
+  ansible.builtin.template:
+    src: gitlab-values.yaml.j2
+    dest: /tmp/gitlab-values-rendered.yaml
+
+- name: Template GitLab manifests
+  ansible.builtin.shell: |
+    helm template {{ gitlab_release_name }} {{ repo_root }}/gitops/components/gitlab/chart \
+      -n {{ gitlab_namespace }} \
+      -f /tmp/gitlab-values-rendered.yaml \
+      > /tmp/gitlab-rendered.yaml
+  args:
+    executable: /bin/bash
+
+- name: Apply GitLab
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -n {{ gitlab_namespace }} -f /tmp/gitlab-rendered.yaml
+  changed_when: true
+
+- name: Apply RHTAS
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/rhtas
+  changed_when: true
+
+- name: Patch RHTAS Fulcio OIDC issuer
+  ansible.builtin.command: >
+    oc --context {{ oc_context }} -n {{ rhtas_namespace }} patch securesign {{ rhtas_name }}
+    --type=json
+    -p='[{"op":"replace","path":"/spec/fulcio/config/OIDCIssuers/0/Issuer","value":"{{ keycloak_issuer_url }}"},
+         {"op":"replace","path":"/spec/fulcio/config/OIDCIssuers/0/IssuerURL","value":"{{ keycloak_issuer_url }}"}]'
+  register: patch_rhtas
+  retries: 20
+  delay: 15
+  until: patch_rhtas.rc == 0
+  ignore_errors: true
+
+- name: Apply TPA data plane
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/rhtpa
+  changed_when: true
+
+- name: Render and apply TPA CR
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'trustedprofileanalyzer.yaml.j2') | from_yaml }}"
+
+- name: Apply RHACS
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/rhacs
+  changed_when: true
+
+- name: Apply pipeline cluster tasks
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/pipelines
+  changed_when: true
+
+- name: Apply Nexus (Maven/npm proxy cache)
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/nexus
+  changed_when: true
+
+- name: Apply Dev Spaces CheCluster
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/devspaces
+  changed_when: true
+
+- name: Wait for GitLab pod
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n {{ gitlab_namespace }} wait --for=condition=Ready pod -l app=gitlab --timeout=600s
+  register: wait_gitlab
+  retries: 8
+  delay: 30
+  until: wait_gitlab.rc == 0
+
+- name: Wait for Keycloak admin secret
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n keycloak get secret keycloak-initial-admin
+  register: wait_kc
+  retries: 40
+  delay: 20
+  until: wait_kc.rc == 0

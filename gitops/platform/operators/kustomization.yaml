@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace-pipelines.yaml
+  - namespace-rhdh.yaml
+  - namespace-devspaces.yaml
+  - namespace-keycloak.yaml
+  - namespace-quay.yaml
+  - namespace-rhtas.yaml
+  - namespace-rhtpa.yaml
+  - namespace-rhacs.yaml
+  - namespace-minio.yaml
+  - namespace-odf.yaml
+  - namespace-ci.yaml
+  # OwnNamespace operators
+  - operatorgroup-keycloak.yaml
+  - operatorgroup-quay.yaml
+  - operatorgroup-rhtpa.yaml
+  - operatorgroup-odf.yaml
+  # AllNamespaces operators (RHDH, RHTAS, RHACS, Pipelines, Dev Spaces)
+  # subscribe in openshift-operators — do not create namespaced OperatorGroups.
+  - subscription-pipelines.yaml
+  - subscription-rhdh.yaml
+  - subscription-devworkspace.yaml
+  - subscription-devspaces.yaml
+  - subscription-rhbk.yaml
+  - subscription-quay.yaml
+  - subscription-rhtas.yaml
+  - subscription-rhtpa.yaml
+  - subscription-rhacs.yaml
+  - subscription-odf.yaml
+  - subscription-odf-mco.yaml

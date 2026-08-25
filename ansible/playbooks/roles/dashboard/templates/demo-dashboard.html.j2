@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>RHADS — Software Supply Chain Demo</title>
+  <style>
+    :root { --ink:#151515; --muted:#6a6e73; --line:#d2d2d2; --bg:#f5f5f5; --card:#fff; --accent:#ee0000; }
+    body { font-family: RedHatText, Helvetica, Arial, sans-serif; margin:0; background:var(--bg); color:var(--ink); }
+    header { background:var(--ink); color:#fff; padding:28px 40px; }
+    header h1 { margin:0 0 6px; font-size:22px; font-weight:600; }
+    header p { margin:0; color:#c7c7c7; font-size:14px; }
+    main { padding:28px 40px 48px; display:grid; grid-template-columns: 2fr 1fr; gap:24px; }
+    h2 { font-size:16px; margin:0 0 12px; }
+    table { width:100%; border-collapse:collapse; background:var(--card); }
+    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:top; }
+    th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+    a { color:#06c; }
+    .card { background:var(--card); padding:16px 18px; border:1px solid var(--line); }
+    .card ul { margin:0; padding-left:18px; }
+    .card li { margin:6px 0; font-size:14px; line-height:1.4; }
+    code { font-size:12px; background:#f0f0f0; padding:1px 4px; }
+    footer { padding:0 40px 32px; color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Red Hat Advanced Developer Suite</h1>
+  <p>Demo de seguridad en la cadena de suministro — OpenShift {{ cluster_base_domain }}</p>
+</header>
+<main>
+  <section>
+    <h2>Consolas</h2>
+    <table>
+      <tr><th>Producto</th><th>URL</th><th>Usuario</th><th>Password</th></tr>
+      <tr><td>Developer Hub</td><td><a href="{{ dash_rhdh_url }}">{{ dash_rhdh_url }}</a></td><td>dev1 / pe1</td><td>{{ common_user_password }}</td></tr>
+      <tr><td>GitLab CE</td><td><a href="{{ dash_gitlab_url }}">{{ dash_gitlab_url }}</a></td><td>root, dev1, pe1</td><td>{{ gitlab_root_password }}</td></tr>
+      <tr><td>Keycloak (RHBK)</td><td><a href="{{ dash_keycloak_url }}">{{ dash_keycloak_url }}</a></td><td>temp-admin</td><td>{{ dash_kc_pass }}</td></tr>
+      <tr><td>OpenShift GitOps</td><td><a href="{{ dash_argocd_url }}">{{ dash_argocd_url }}</a></td><td>admin</td><td>{{ dash_argocd_pass }}</td></tr>
+      <tr><td>Quay</td><td><a href="{{ dash_quay_url }}">{{ dash_quay_url }}</a></td><td>{{ quay_admin_user }}</td><td>{{ quay_admin_password }}</td></tr>
+      <tr><td>ACS Central</td><td><a href="{{ dash_acs_url }}">{{ dash_acs_url }}</a></td><td>admin</td><td>secret central-htpasswd</td></tr>
+      <tr><td>Trusted Profile Analyzer</td><td><a href="{{ dash_tpa_url }}">{{ dash_tpa_url }}</a></td><td>tpa-admin</td><td>{{ common_user_password }}</td></tr>
+      <tr><td>Dev Spaces</td><td><a href="{{ dash_devspaces_url }}">{{ dash_devspaces_url }}</a></td><td>OpenShift login</td><td>—</td></tr>
+      <tr><td>Rekor</td><td><a href="{{ dash_rekor_url }}">{{ dash_rekor_url }}</a></td><td>—</td><td>—</td></tr>
+      <tr><td>Fulcio</td><td><a href="{{ dash_fulcio_url }}">{{ dash_fulcio_url }}</a></td><td>—</td><td>—</td></tr>
+      <tr><td>Nexus</td><td><a href="{{ dash_nexus_url }}">{{ dash_nexus_url }}</a></td><td>admin</td><td>admin123</td></tr>
+    </table>
+  </section>
+  <aside class="card">
+    <h2>Guion en vivo</h2>
+    <ul>
+      <li>Login en Developer Hub como <code>dev1</code></li>
+      <li>Create → template agentic (Quarkus / Camel / Node.js)</li>
+      <li>Catálogo → OpenShift Dev Spaces → RHDA sobre pom.xml</li>
+      <li>Trusted Profile Analyzer: último SBOM (primer pipeline)</li>
+      <li>Cambio de código + <strong>commit firmado</strong> (gitsign / misma raíz que cosign)</li>
+      <li>Pipeline: Nexus, OpenShift Builds, SBOM, cosign, Rekor, ACS, TPA, Conforma, Chains</li>
+      <li>GitLab <strong>tag</strong> → staging (Conforma STRICT)</li>
+      <li>GitLab <strong>release</strong> → production (Conforma STRICT)</li>
+    </ul>
+  </aside>
+</main>
+<footer>RHADS demo · GitOps + Ansible · repetible en sandboxes OpenShift 4.20+</footer>
+</body>
+</html>

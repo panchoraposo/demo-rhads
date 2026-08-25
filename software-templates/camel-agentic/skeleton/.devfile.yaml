@@ -1,0 +1,36 @@
+schemaVersion: 2.2.0
+metadata:
+  name: ${{values.component_id}}
+  projectType: quarkus
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:latest
+      memoryLimit: 4Gi
+      mountSources: true
+      env:
+        - name: MAVEN_ARGS
+          value: "-s .mvn/settings.xml"
+        - name: GITSIGN_FULCIO_URL
+          value: https://fulcio-server-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_REKOR_URL
+          value: https://rekor-server-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_OIDC_ISSUER
+          value: https://sso.${{values.cluster_subdomain}}/realms/backstage
+        - name: GITSIGN_OIDC_CLIENT_ID
+          value: trusted-artifact-signer
+commands:
+  - id: setup-gitsign
+    exec:
+      label: Configure Sigstore git commit signing (gitsign / cosign trust root)
+      component: tools
+      commandLine: bash .devcontainer/setup-gitsign.sh
+      workingDir: ${PROJECT_SOURCE}
+  - id: package
+    exec:
+      component: tools
+      commandLine: ./mvnw -s .mvn/settings.xml -DskipTests package
+      workingDir: ${PROJECT_SOURCE}
+events:
+  postStart:
+    - setup-gitsign

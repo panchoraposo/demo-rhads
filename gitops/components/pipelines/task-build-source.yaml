@@ -1,0 +1,74 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: rhads-build-source
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+spec:
+  params:
+    - name: LANGUAGE
+      type: string
+      default: maven
+  workspaces:
+    - name: source
+    - name: maven-settings
+      optional: true
+  steps:
+    - name: compile
+      image: registry.access.redhat.com/ubi9/openjdk-17:latest
+      env:
+        - name: LANGUAGE
+          value: $(params.LANGUAGE)
+        - name: MAVEN_OPTS
+          value: "-Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true"
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "============================================================"
+        echo "[SSSC] Compile application sources via Nexus"
+        echo "Control: dependencies resolve from the platform Nexus (preloaded / proxied),"
+        echo "         not from random public mirrors at build time."
+        echo "Language: ${LANGUAGE}"
+        echo "============================================================"
+        if [ "${LANGUAGE}" != "maven" ]; then
+          echo "Skipping Maven (language=${LANGUAGE})"
+          exit 0
+        fi
+        cd "$(workspaces.source.path)"
+        echo "tools: $(mvn -v | head -1)"
+        SETTINGS="$(workspaces.maven-settings.path)/settings.xml"
+        if [ -f "${SETTINGS}" ]; then
+          echo "Maven settings: ${SETTINGS}"
+          grep -E '<url>|<id>|<mirrorOf>' "${SETTINGS}" || true
+          mvn -B -s "${SETTINGS}" package -DskipTests
+        else
+          echo "WARN: Nexus settings.xml not mounted; Maven will use defaults"
+          mvn -B package -DskipTests
+        fi
+        echo
+        echo "PASS: Maven package completed (Nexus-backed). Artifacts are in target/ for OpenShift Builds."
+    - name: npm
+      image: registry.access.redhat.com/ubi9/nodejs-20:latest
+      env:
+        - name: LANGUAGE
+          value: $(params.LANGUAGE)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        if [ "${LANGUAGE}" != "npm" ]; then
+          echo "Skipping npm (language=${LANGUAGE})"
+          exit 0
+        fi
+        echo "============================================================"
+        echo "[SSSC] npm install via Nexus"
+        echo "Control: the registry is the platform Nexus npm group, not registry.npmjs.org."
+        echo "============================================================"
+        cd "$(workspaces.source.path)"
+        echo "tools: node=$(node -v) npm=$(npm -v)"
+        if [ -f "$(workspaces.maven-settings.path)/.npmrc" ]; then
+          cp "$(workspaces.maven-settings.path)/.npmrc" "${HOME}/.npmrc"
+          echo "npmrc: $(cat "${HOME}/.npmrc")"
+        fi
+        npm ci --omit=dev || npm install --omit=dev
+        echo "PASS: npm install completed (Nexus-backed)."

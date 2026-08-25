@@ -1,0 +1,47 @@
+---
+- name: Apply operator subscriptions from the working tree
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/platform/operators
+  register: apply_ops
+  changed_when: "'created' in apply_ops.stdout or 'configured' in apply_ops.stdout"
+
+- name: Wait for operator CSVs
+  ansible.builtin.include_tasks: wait-csv.yaml
+  loop:
+    - { ns: openshift-operators, match: pipelines }
+    - { ns: openshift-operators, match: rhdh }
+    - { ns: keycloak, match: rhbk }
+    - { ns: quay, match: quay-operator }
+    - { ns: openshift-operators, match: rhtas }
+    - { ns: trusted-profile-analyzer, match: rhtpa }
+    - { ns: openshift-operators, match: rhacs }
+    - { ns: openshift-operators, match: devspaces }
+    - { ns: openshift-storage, match: odf-operator }
+    - { ns: openshift-storage, match: mcg-operator }
+    - { ns: openshift-operators, match: odf-multicluster-orchestrator }
+  loop_control:
+    loop_var: csv
+
+# Copied AllNamespaces CSVs can report Succeeded in openshift-operators while the
+# real operator still lives in another namespace (e.g. a leftover backstage OG).
+- name: Drop leftover RHDH CSV in backstage if it has no OperatorGroup
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: backstage
+    label_selector: operators.coreos.com/rhdh.backstage
+  failed_when: false
+
+- name: Wait for RHDH operator Deployment in openshift-operators
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: rhdh-operator
+    namespace: openshift-operators
+  register: rhdh_operator_deploy
+  until: >
+    rhdh_operator_deploy.resources | default([]) | length > 0 and
+    (rhdh_operator_deploy.resources[0].status.availableReplicas | default(0) | int) >= 1
+  retries: 40
+  delay: 10

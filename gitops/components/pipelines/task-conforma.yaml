@@ -1,0 +1,94 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: rhads-conforma-verify
+  namespace: rhads-ci
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+spec:
+  params:
+    - name: IMAGE
+      type: string
+    - name: POLICY
+      type: string
+      default: rhads-slsa
+    - name: PUBLIC_KEY
+      type: string
+      default: /var/run/cosign/cosign.pub
+    - name: REKOR_URL
+      type: string
+    - name: STRICT
+      type: string
+      default: "false"
+    - name: ENVIRONMENT
+      type: string
+      default: dev
+  steps:
+    - name: conforma
+      image: quay.io/conforma/cli:latest
+      env:
+        - name: IMAGE
+          value: $(params.IMAGE)
+        - name: POLICY
+          value: $(params.POLICY)
+        - name: REKOR_URL
+          value: $(params.REKOR_URL)
+        - name: STRICT
+          value: $(params.STRICT)
+        - name: ENVIRONMENT
+          value: $(params.ENVIRONMENT)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "============================================================"
+        echo "[SSSC] Conforma / Enterprise Contract (${ENVIRONMENT})"
+        echo "Control: policy-as-code over signature, SBOM attestation and SLSA."
+        echo "Image:  ${IMAGE}"
+        echo "Rekor:  ${REKOR_URL}"
+        echo "STRICT: ${STRICT}  (true = promotion gate; false = report only on dev)"
+        echo "============================================================"
+        if [ ! -f /policy/policy.yaml ]; then
+          echo "WARN: ConfigMap rhads-conforma-policy not mounted"
+        else
+          echo "--- policy.yaml ---"
+          cat /policy/policy.yaml
+          echo
+        fi
+        echo "--- ec validate image ---"
+        set +e
+        ec validate image \
+          --image "${IMAGE}" \
+          --public-key /var/run/cosign/cosign.pub \
+          --rekor-url "${REKOR_URL}" \
+          --policy /policy/policy.yaml \
+          --output yaml
+        rc=$?
+        set -e
+        if [ "${rc}" -eq 0 ]; then
+          echo
+          echo "PASS: Conforma policy satisfied for ${ENVIRONMENT}."
+          exit 0
+        fi
+        echo
+        echo "Conforma reported policy failures (exit ${rc}) on ${ENVIRONMENT}."
+        if [ "${STRICT}" = "true" ]; then
+          echo "FAIL: STRICT=true — promotion is blocked until the image meets policy."
+          exit "${rc}"
+        fi
+        echo "WARN: STRICT=false — continuing so the live demo can show the report before promotion."
+      volumeMounts:
+        - name: cosign-key
+          mountPath: /var/run/cosign
+          readOnly: true
+        - name: policy
+          mountPath: /policy
+          readOnly: true
+  volumes:
+    - name: cosign-key
+      secret:
+        secretName: cosign-signing-key
+        optional: true
+    - name: policy
+      configMap:
+        name: rhads-conforma-policy
+        optional: true
