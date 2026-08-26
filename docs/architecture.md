@@ -4,6 +4,28 @@
 
 A repeatable platform, installed with Ansible and reconciled by OpenShift GitOps, to demonstrate **software supply chain security** with Red Hat Advanced Developer Suite on OpenShift 4.20+.
 
+## Source of truth
+
+| Copy | Role |
+| --- | --- |
+| **GitHub** `panchoraposo/demo-rhads` (`main`) | Installer and templates for the **next** cluster. This is what you clone. |
+| Local working tree | What `./install.sh` actually applies, then force-pushes to GitLab. |
+| GitLab `platform-engineers/rhads-platform` | What Argo CD reconciles **after** install. Hostnames are substituted (`GITLAB_HOST_PLACEHOLDER`, `QUAY_HOST_PLACEHOLDER`, `CLUSTER_SUBDOMAIN_PLACEHOLDER`). |
+
+A sandbox that is thrown away and recreated only sees GitHub. Live GitLab edits do not survive that cycle unless they are committed here first.
+
+```mermaid
+flowchart LR
+  GH[GitHub demo-rhads]
+  AN[Ansible install.sh]
+  GL[GitLab rhads-platform]
+  ACD[OpenShift GitOps]
+  GH --> AN
+  AN --> GL
+  AN --> ACD
+  GL --> ACD
+```
+
 ## Components
 
 ```mermaid
@@ -14,9 +36,10 @@ flowchart LR
   subgraph portal [Portal]
     RHDH[Developer Hub 1.10]
     DS[Dev Spaces 3.29]
+    RHDA[RHDA backend]
   end
   subgraph scm [SCM]
-    GL[GitLab CE]
+    GL[GitLab CE + docs runner]
   end
   subgraph gitops [GitOps]
     ACD[OpenShift GitOps 1.21]
@@ -27,8 +50,11 @@ flowchart LR
     NEXUS[Nexus]
     CONF[Conforma]
   end
+  subgraph storage [Storage]
+    ODF[ODF MCG / NooBaa]
+  end
   subgraph rhads [RHADS]
-    TAS[RHTAS 1.4 Fulcio Rekor]
+    TAS[RHTAS 1.4 Fulcio Rekor TUF]
     TPA[TPA 3.1]
     ACS[ACS 4.11]
     QUAY[Quay 3.17]
@@ -39,7 +65,8 @@ flowchart LR
   RHBK --> TPA
   RHDH --> GL
   RHDH --> DS
-  DS -->|RHDA| TPA
+  DS -->|RHDA| RHDA
+  RHDA --> TPA
   GL -->|push| PIPE
   GL -->|tag| PIPE
   GL -->|release| PIPE
@@ -51,10 +78,55 @@ flowchart LR
   PIPE --> ACS
   PIPE --> CONF
   PIPE --> ACD
+  ODF --> QUAY
+  ODF --> TPA
   ACD --> DEV[ns app-dev]
   ACD --> STG[ns app-staging]
   ACD --> PRD[ns app-prod]
 ```
+
+Object storage is **OpenShift Data Foundation Multicloud Object Gateway** (NooBaa) plus the **ODF Multicluster Orchestrator**. Quay and TPA use ObjectBucketClaims. There is no MinIO.
+
+## Identity and OIDC
+
+Realm **`backstage`**: Developer Hub, GitLab, Fulcio/gitsign (`trusted-artifact-signer`). Realm **`trustify`**: TPA and the RHDA backend.
+
+The TAS client includes loopback URLs and `urn:ietf:wg:oauth:2.0:oob`. Keycloak 26 treats `*` as http(s) only; Dev Spaces has no `xdg-open`, so gitsign uses the OOB verification code.
+
+Developer Hub waits for SSO at boot. If Keycloak comes up after Hub has already cached a failed `Issuer.discover`, `rhads-hub-oidc-watchdog` restarts the Hub deployment.
+
+## Software templates
+
+Three Developer Hub templates, all app-of-apps:
+
+- `quarkus-agentic` — Quarkus MCP server (Red Hat build of Quarkus)
+- `camel-agentic` — Camel Quarkus REST agent
+- `nodejs-agentic` — Express agent
+
+Component **name maxLength is 18** (OpenShift/Kubernetes name limits for the generated namespaces and resources). Default: `quarkus-agent`.
+
+The scaffolder creates:
+
+1. A source repo in the GitLab `developers` group
+2. An `{app}-gitops` repo with `argocd/applications.yaml` (build + dev + staging + prod)
+3. An Argo CD bootstrap Application on `argocd/`
+
+Templates ship **n-1** runtimes on purpose so TPA/RHDA have findings: Quarkus/Camel **3.20.6.redhat-00004**, OpenJDK **ubi8/openjdk-17**, Node.js **ubi9/nodejs-18**, plus known-vulnerable libraries (`commons-text` 1.9, `snakeyaml` 1.33, `express` 4.18.2, `lodash` 4.17.20). Ansible seeds matching OSV advisories into TPA; full CVE importers stay disabled so they do not fill the sandbox PVC.
+
+Catalog `catalog-info.yaml` sets `backstage.io/kubernetes-id` and **does not** set `backstage.io/kubernetes-namespace`. Hub Topology therefore lists the same deployment in `{app}-dev`, `{app}-staging`, and `{app}-prod`. Pinning the annotation to `-dev` hid the other environments.
+
+## First pipeline after create
+
+Helm installs a `{app}-build-cache` PVC (`WaitForFirstConsumer`). Argo CD waits for all resources to be Healthy **before** PostSync hooks. If copy-secrets and webhook were PostSync Jobs, they never ran while the PVC stayed Pending.
+
+Those Jobs are **normal resources** (`Replace=true`):
+
+1. **copy-secrets** — GitLab token, Quay dockerconfig, cosign key into the app namespace.
+2. **webhook** — GitLab hook (push / tag / release) on the EventListener, create Quay repo `rhads/{app}` and grant `rhads+pipeline`, then POST a fake push so the **first PipelineRun** starts without a developer push.
+
+The scaffolder commit is **unsigned**. Task `gitsign-verify` warns and continues. The signed Dev Spaces commit is the one the live demo verifies.
+
+GitLab Auto DevOps is disabled. A single instance runner builds TechDocs from the docs-only `.gitlab-ci.yml`. Application CI is Tekton, not GitLab CI.
 
 ## Promotion
 
@@ -66,32 +138,30 @@ flowchart LR
 
 Each build pipeline:
 
-1. `git-clone` + `gitsign verify` (RHTAS; Dev Spaces commits use gitsign, same trust root as cosign)
-2. Maven / npm against **Nexus** (`maven-public` / `npm-group`)
+1. `git-clone` + `gitsign verify` (RHTAS TUF; unsigned scaffold commits warn only)
+2. Maven / npm against **Nexus** (`maven-public` / `npm-group`), workspace on the build-cache PVC
 3. **OpenShift Builds** (BuildConfig Docker strategy, binary `--from-dir`) → Quay
 4. Syft CycloneDX + SPDX
-5. `cosign sign` with the demo key and **upload to Rekor**
+5. `cosign sign` with the **demo key** and **upload to Rekor**
 6. `cosign attest` SBOM + `cosign attach sbom`
 7. `roxctl image scan` and `image check` (ACS)
 8. Upload SBOM to Trusted Profile Analyzer
-9. `ec validate image` against documented Conforma collections **`@redhat`** and **`@slsa3`** (STRICT on staging/prod). Image signatures may use the demo key; Chains provenance is verified keyless (Fulcio identity + Rekor + TUF).
+9. `ec validate image` against collections **`@redhat`** and **`@slsa3`** (STRICT on staging/prod). Image signatures may use the demo key; Chains provenance is verified keyless (Fulcio identity + Rekor + TUF). Konflux-only rules (hermetic buildah, source-image, CPE labels, …) are excluded in `rhads-conforma-policy`.
 10. Commit the digest to the GitOps overlay + GitLab comment
-11. Tekton Chains signs TaskRun/PipelineRun **keyless**: Fulcio issues a short-lived cert for `tekton-chains-controller` (Kubernetes OIDC), Rekor records the signature, TUF distributes the RHTAS trust root. Format is in-toto / SLSA.
+11. Tekton Chains signs TaskRun/PipelineRun **keyless**: Fulcio issues a short-lived cert for `tekton-chains-controller` (Kubernetes OIDC), Rekor records the signature, TUF distributes the RHTAS trust root.
 
-## Software templates
+`chains-status` is a `finally` task. It dumps `chains.tekton.dev/*` annotations; it does **not** sign. Signing is asynchronous in `tekton-chains-controller`. Distinct from `sign-image` (cosign + demo key on the image).
 
-Three Developer Hub templates, all app-of-apps:
+## Inner loop (Dev Spaces)
 
-- `quarkus-agentic` — Quarkus MCP server (Red Hat build of Quarkus)
-- `camel-agentic` — Camel Quarkus REST agent
-- `nodejs-agentic` — Express agent
+Devfile env points gitsign at cluster Fulcio, Rekor, Keycloak issuer, and TUF (`https://tuf-trusted-artifact-signer.apps.<cluster>`). Command palette:
 
-The scaffolder creates:
+1. **Configure Sigstore git commit signing (gitsign + RHTAS TUF)** — install gitsign, `gitsign initialize --mirror … --root root.json` (private Fulcio is not in the public Sigstore TUF).
+2. `git commit` — copy the printed OIDC URL, log in as `dev1` / `backstage`, paste the code. Certificate identity is the Keycloak email (`dev1@rhads.demo`).
+3. **Verify Sigstore-signed HEAD (gitsign + RHTAS TUF)** — `gitsign verify` with `--certificate-identity` and `--certificate-oidc-issuer`.
 
-1. A source repo in the GitLab `developers` group
-2. An `{app}-gitops` repo with `argocd/applications.yaml` (build + dev + staging + prod)
-3. An Argo CD bootstrap Application on `argocd/`
+RHDA in VS Code posts to the in-cluster **RHDA backend**, which queries this cluster’s TPA (not Red Hat’s SaaS analyzer).
 
 ## Resources (single-node sandbox)
 
-Clair disabled, ACS scanner at 1 replica, TPA without tracing/metrics, GitLab all-in-one. Block storage: `gp3-csi`. Object storage: **OpenShift Data Foundation** Multicloud Object Gateway (NooBaa) with the **ODF Multicluster Orchestrator (MCO)** operator; Quay and TPA use ObjectBucketClaims.
+Clair disabled, ACS scanner at 1 replica, TPA without tracing/metrics, GitLab all-in-one. Block storage: `gp3-csi`. Object storage: ODF MCG (NooBaa) + MCO; Quay and TPA use ObjectBucketClaims.
