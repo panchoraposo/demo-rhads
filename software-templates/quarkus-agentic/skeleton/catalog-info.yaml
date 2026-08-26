@@ -11,7 +11,8 @@ metadata:
     argocd/instance-name: main
     backstage.io/kubernetes-id: ${{values.component_id}}
     backstage.io/kubernetes-cluster: demo-cluster
-    backstage.io/kubernetes-namespace: ${{values.namespace}}
+    # Do not set kubernetes-namespace: Topology would only show -dev.
+    # Staging/prod share kubernetes-id; Hub lists all namespaces the SA can view.
     # --- Tekton ---
     janus-idp.io/tekton: ${{values.component_id}}
     tekton.dev/cicd : "true"

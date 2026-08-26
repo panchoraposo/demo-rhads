@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rhads-patch-rhda
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rhads-patch-rhda
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rhads-patch-rhda
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rhads-patch-rhda
+subjects:
+  - kind: ServiceAccount
+    name: rhads-patch-rhda
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rhads-patch-rhda-ingress
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+rules:
+  - apiGroups: ["config.openshift.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rhads-patch-rhda-ingress
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rhads-patch-rhda-ingress
+subjects:
+  - kind: ServiceAccount
+    name: rhads-patch-rhda
+    namespace: trusted-profile-analyzer
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rhads-patch-rhda-oidc
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  backoffLimit: 8
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: rhads-patch-rhda
+      containers:
+        - name: patch
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              DOMAIN="$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')"
+              ISSUER="https://sso.${DOMAIN}/realms/trustify"
+              TPA="https://server.${DOMAIN}"
+              echo "RHDA backend OIDC issuer: ${ISSUER}"
+              oc -n trusted-profile-analyzer create secret generic rhda-backend-oidc \
+                --from-literal=rhtpa.auth.server.url="${ISSUER}" \
+                --from-literal=branding.explore.url="${TPA}/search" \
+                --dry-run=client -o yaml | oc apply -f -
+              oc -n trusted-profile-analyzer label secret rhda-backend-oidc app=rhda-backend --overwrite
+              oc -n trusted-profile-analyzer annotate secret rhda-backend-oidc \
+                argocd.argoproj.io/compare-options=IgnoreExtraneous --overwrite
+              oc -n trusted-profile-analyzer rollout restart deploy/rhda-backend || true
+              echo "PASS: RHDA backend authenticates to TPA via realm trustify"

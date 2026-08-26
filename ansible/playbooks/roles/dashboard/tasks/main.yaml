@@ -41,7 +41,7 @@
     dash_acs_url: "https://{{ acs_route_res.resources[0].spec.host if (acs_route_res.resources | default([]) | length > 0) else ('central-stackrox.' + openshift_base_domain) }}"
     dash_tpa_url: "https://server{{ tpa_app_domain }}/"
     dash_devspaces_url: "https://devspaces.{{ openshift_base_domain }}/"
-    dash_rekor_url: "https://rekor-server-trusted-artifact-signer.{{ openshift_base_domain }}/"
+    dash_rekor_url: "https://rekor-search-ui-trusted-artifact-signer.{{ openshift_base_domain }}/"
     dash_fulcio_url: "https://fulcio-server-trusted-artifact-signer.{{ openshift_base_domain }}/"
     dash_nexus_url: "https://nexus-nexus.{{ openshift_base_domain }}/"
     dash_kc_pass: "{{ (kc_secret_res.resources[0].data.password | b64decode) if (kc_secret_res.resources | length > 0) else '' }}"

@@ -27,16 +27,28 @@ data:
             <repository>
               <id>nexus</id>
               <url>http://nexus.nexus.svc:8081/repository/maven-public/</url>
-              <releases><enabled>true</enabled></releases>
-              <snapshots><enabled>true</enabled></snapshots>
+              <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </releases>
+              <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </snapshots>
             </repository>
           </repositories>
           <pluginRepositories>
             <pluginRepository>
               <id>nexus</id>
               <url>http://nexus.nexus.svc:8081/repository/maven-public/</url>
-              <releases><enabled>true</enabled></releases>
-              <snapshots><enabled>true</enabled></snapshots>
+              <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </releases>
+              <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+              </snapshots>
             </pluginRepository>
           </pluginRepositories>
         </profile>

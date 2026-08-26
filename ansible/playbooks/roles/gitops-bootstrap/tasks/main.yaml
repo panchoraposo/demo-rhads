@@ -2,7 +2,7 @@
 - name: Apply RHADS operators via GitOps kustomize (local working tree)
   include_tasks: apply-operators.yaml
 
-- name: Deploy MinIO, Keycloak, GitLab and remaining platform components
+- name: Deploy ODF, Keycloak, GitLab and remaining platform components
   include_tasks: apply-components.yaml
 
 - name: Create Argo CD Applications pointing at this repo (and later GitLab)

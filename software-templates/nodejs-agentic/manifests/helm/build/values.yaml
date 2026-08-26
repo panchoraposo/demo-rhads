@@ -22,4 +22,5 @@ cluster:
   subdomain: ""
 
 build:
-  language: maven   # maven | npm | none
+  language: npm   # maven | npm | none
+  cacheSize: 8Gi

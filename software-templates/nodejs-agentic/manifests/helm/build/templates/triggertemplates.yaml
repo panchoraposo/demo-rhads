@@ -25,6 +25,37 @@ spec:
           podTemplate:
             securityContext:
               fsGroup: 65532
+        taskRunSpecs:
+          - pipelineTaskName: generate-sbom
+            metadata:
+              annotations:
+                task.output.location: results
+                task.results.format: application/text
+                task.results.type: external-link
+                task.results.key: LINK_TO_SBOM
+          - pipelineTaskName: acs-scan
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: roxctl-image-scan
+                task.results.key: SCAN_OUTPUT
+                task.output.location: logs
+                task.results.container: step-report
+          - pipelineTaskName: acs-check
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: roxctl-image-check
+                task.results.key: SCAN_OUTPUT
+                task.output.location: logs
+                task.results.container: step-report
+          - pipelineTaskName: conforma-dev
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: ec
+                task.output.location: logs
+                task.results.container: step-report-json
         params:
           - { name: source-repo, value: $(tt.params.git-repo-url) }
           - { name: source-branch, value: $(tt.params.git-revision) }
@@ -32,14 +63,12 @@ spec:
           - { name: output-image, value: {{ include "image.dev-url" . | quote }} }
           - { name: gitops-repo, value: {{ .Values.git.gitopsRepo | quote }} }
           - { name: component-id, value: {{ include "rhads-build.name" . | quote }} }
+        # Single RWO PVC: git checkout at source/, Maven/npm cache beside it.
+        # Two PVCs on one TaskRun fail on this cluster (coschedule/workspaces).
         workspaces:
           - name: source-folder
-            volumeClaimTemplate:
-              spec:
-                accessModes: ["ReadWriteOnce"]
-                resources:
-                  requests:
-                    storage: 2Gi
+            persistentVolumeClaim:
+              claimName: {{ include "rhads-build.name" . }}-build-cache
           - name: maven-settings
             configMap:
               name: rhads-maven-settings
@@ -71,6 +100,22 @@ spec:
           podTemplate:
             securityContext:
               fsGroup: 65532
+        taskRunSpecs:
+          - pipelineTaskName: acs-check
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: roxctl-image-check
+                task.results.key: SCAN_OUTPUT
+                task.output.location: logs
+                task.results.container: step-report
+          - pipelineTaskName: conforma
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: ec
+                task.output.location: logs
+                task.results.container: step-report-json
         params:
           - { name: image-tag, value: $(tt.params.image-tag) }
           - { name: overlay, value: staging }
@@ -113,6 +158,22 @@ spec:
           podTemplate:
             securityContext:
               fsGroup: 65532
+        taskRunSpecs:
+          - pipelineTaskName: acs-check
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: roxctl-image-check
+                task.results.key: SCAN_OUTPUT
+                task.output.location: logs
+                task.results.container: step-report
+          - pipelineTaskName: conforma
+            metadata:
+              annotations:
+                task.results.format: application/json
+                task.results.type: ec
+                task.output.location: logs
+                task.results.container: step-report-json
         params:
           - { name: image-tag, value: $(tt.params.image-tag) }
           - { name: overlay, value: prod }

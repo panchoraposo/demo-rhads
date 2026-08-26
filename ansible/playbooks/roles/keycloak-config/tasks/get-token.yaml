@@ -1,7 +1,7 @@
 ---
 - name: Read Keycloak admin password
   ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} -n keycloak get secret keycloak-initial-admin -o jsonpath={.data.password}
+    cmd: oc --context {{ oc_context }} -n keycloak get secret keycloak-initial-admin -o jsonpath={{ '{.data.password}' }}
   register: kc_admin_pass_raw
   retries: 40
   delay: 15

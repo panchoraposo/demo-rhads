@@ -22,6 +22,7 @@ spec:
         owner: ${{ values.owner }}
         build:
           language: ${{ values.build_language }}
+          cacheSize: 8Gi
         git:
           host: ${{ values.repository_host }}
           repo: ${{ values.source_repository }}
@@ -77,7 +78,6 @@ spec:
           host: ${{ values.image_host }}
           name: ${{ values.image_name }}
           namespace: ${{ values.namespace }}
-          tag: ${{ values.image_tag }}
           password: ${{ values.image_password }}
   destination:
     server: https://kubernetes.default.svc
@@ -121,7 +121,6 @@ spec:
           host: ${{ values.image_host }}
           name: ${{ values.image_name }}
           namespace: ${{ values.component_id }}-staging
-          tag: ${{ values.image_tag }}
           password: ${{ values.image_password }}
   destination:
     server: https://kubernetes.default.svc
@@ -162,7 +161,6 @@ spec:
           host: ${{ values.image_host }}
           name: ${{ values.image_name }}
           namespace: ${{ values.component_id }}-prod
-          tag: ${{ values.image_tag }}
           password: ${{ values.image_password }}
   destination:
     server: https://kubernetes.default.svc

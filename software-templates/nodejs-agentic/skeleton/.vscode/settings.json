@@ -1,0 +1,8 @@
+{
+  "redhat.telemetry.enabled": false,
+  "extensions.autoUpdate": false,
+  "npm.packageManager": "npm",
+  "javascript.suggestionActions.enabled": false,
+  "redHatDependencyAnalytics.matchManifestVersions": false,
+  "redHatDependencyAnalytics.backendUrl": "http://rhda-backend.trusted-profile-analyzer.svc:8080"
+}

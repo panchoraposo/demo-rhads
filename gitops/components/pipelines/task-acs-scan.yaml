@@ -5,6 +5,12 @@ metadata:
   namespace: rhads-ci
   labels:
     app.kubernetes.io/part-of: rhads-demo
+  annotations:
+    task.results.format: application/json
+    task.results.type: roxctl-image-scan
+    task.results.key: SCAN_OUTPUT
+    task.output.location: logs
+    task.results.container: step-report
 spec:
   params:
     - name: IMAGE
@@ -12,10 +18,15 @@ spec:
     - name: FAIL_ON
       type: string
       default: Critical
+  results:
+    - name: SCAN_OUTPUT
+      description: CVE counts for the RHDH Tekton CI Vulnerabilities column
   steps:
     - name: scan
       image: registry.redhat.io/advanced-cluster-security/rhacs-roxctl-rhel9@sha256:3c71bc204142a2d89e7c0a6c02aec582c0f21b7072c0558008d8ceaad0b6bc1d
       env:
+        - name: HOME
+          value: /tmp
         - name: IMAGE
           value: $(params.IMAGE)
         - name: FAIL_ON
@@ -32,9 +43,13 @@ spec:
               name: acs-ci
               key: central-host
               optional: true
+      volumeMounts:
+        - name: reports
+          mountPath: /reports
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
+        mkdir -p /tmp/.docker /reports
         echo "============================================================"
         echo "[SSSC] ACS image scan (CVEs)"
         echo "Control: Advanced Cluster Security inspects the pushed digest."
@@ -43,20 +58,104 @@ spec:
         echo "Central:  ${ROX_CENTRAL_ADDRESS:-<not set>}"
         echo "============================================================"
         if [ -z "${ROX_API_TOKEN:-}" ] || [ -z "${ROX_CENTRAL_ADDRESS:-}" ]; then
-          echo "WARN: ACS secret acs-ci missing; skipping scan"
-          exit 0
+          echo "FAIL: ACS secret acs-ci missing (api-token / central-host)"
+          echo '{}' > /reports/image-scan.json
+          exit 1
         fi
         export ROX_INSECURE_CLIENT=true
-        echo "--- roxctl image scan ---"
+        echo "--- roxctl image scan (json + table) ---"
+        set +e
         roxctl image scan \
           --image="${IMAGE}" \
           -e "${ROX_CENTRAL_ADDRESS}" \
           --insecure-skip-tls-verify \
-          --fail-on="${FAIL_ON}" \
-          -o table || {
-            echo
-            echo "WARN: ACS reported findings at or above ${FAIL_ON} (demo continues; promotion uses policy check)."
-            exit 0
-          }
+          -o json > /reports/image-scan.json
+        json_rc=$?
+        roxctl image scan \
+          --image="${IMAGE}" \
+          -e "${ROX_CENTRAL_ADDRESS}" \
+          --insecure-skip-tls-verify \
+          -o table
+        table_rc=$?
+        set -e
+        if [ ! -s /reports/image-scan.json ]; then
+          echo '{}' > /reports/image-scan.json
+        fi
         echo
-        echo "PASS: ACS image scan completed."
+        if [ "${json_rc}" -ne 0 ] && [ "${table_rc}" -ne 0 ]; then
+          echo "WARN: roxctl image scan exited json=${json_rc} table=${table_rc}; SCAN_OUTPUT will still be published."
+        else
+          echo "PASS: ACS image scan completed."
+        fi
+    - name: summarize
+      image: registry.access.redhat.com/ubi9/ubi:9.6
+      volumeMounts:
+        - name: reports
+          mountPath: /reports
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        python3 - <<'PY' > "$(results.SCAN_OUTPUT.path)"
+        import json, sys
+        path = "/reports/image-scan.json"
+        try:
+            data = json.load(open(path))
+        except Exception:
+            data = {}
+
+        def n(v):
+            if v is None:
+                return 0
+            if isinstance(v, dict):
+                for key in ("total", "Total", "count", "Count"):
+                    if key in v:
+                        return n(v[key])
+                return 0
+            try:
+                return int(v)
+            except Exception:
+                return 0
+
+        def pick(d, *keys):
+            for k in keys:
+                if isinstance(d, dict) and k in d:
+                    return d[k]
+            return 0
+
+        summary = {}
+        if isinstance(data, dict):
+            node = data.get("result") or data
+            if isinstance(node, dict):
+                raw = node.get("summary") or node.get("vulnSummary") or {}
+                if isinstance(raw, dict):
+                    summary = raw
+        crit = n(pick(summary, "CRITICAL", "critical"))
+        high = n(pick(summary, "IMPORTANT", "high", "HIGH"))
+        med = n(pick(summary, "MODERATE", "medium", "MEDIUM"))
+        low = n(pick(summary, "LOW", "low"))
+        unk = n(pick(summary, "UNKNOWN", "unknown"))
+        out = {
+            "vulnerabilities": {
+                "critical": crit,
+                "high": high,
+                "medium": med,
+                "low": low,
+                "unknown": unk,
+            }
+        }
+        json.dump(out, sys.stdout, separators=(",", ":"))
+        PY
+        echo
+        echo "SCAN_OUTPUT=$(cat "$(results.SCAN_OUTPUT.path)")"
+    - name: report
+      image: registry.access.redhat.com/ubi9/ubi:9.6
+      volumeMounts:
+        - name: reports
+          mountPath: /reports
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        cat /reports/image-scan.json
+  volumes:
+    - name: reports
+      emptyDir: {}

@@ -9,7 +9,6 @@ resources:
   - namespace-rhtas.yaml
   - namespace-rhtpa.yaml
   - namespace-rhacs.yaml
-  - namespace-minio.yaml
   - namespace-odf.yaml
   - namespace-ci.yaml
   # OwnNamespace operators

@@ -91,3 +91,27 @@ data:
                           - isArgocdAvailable
       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:{{inherit}}
         disabled: false
+      # GitLab pipelines on the CI tab (docs-only .gitlab-ci.yml) next to Tekton.
+      # 7.0.1 targets MUI 7 and crashes the Hub (internal_mutateStyles). 6.13.0
+      # shares the Hub MUI 5 / react-router 6 stack. Skip 6.13.1 and 7.0.2 (npm compromise).
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab-backend:bs_1.45.3__6.13.0!immobiliarelabs-backstage-plugin-gitlab-backend
+        disabled: false
+        pluginConfig:
+          gitlab:
+            host: ${GITLAB_HOST}
+            token: ${GITLAB_TOKEN}
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.45.3__6.13.0!immobiliarelabs-backstage-plugin-gitlab
+        disabled: false
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              immobiliarelabs.backstage-plugin-gitlab:
+                mountPoints:
+                  - mountPoint: entity.page.ci/cards
+                    importName: EntityGitlabPipelinesTable
+                    config:
+                      layout:
+                        gridColumn: "1 / -1"
+                      if:
+                        allOf:
+                          - isGitlabAvailable

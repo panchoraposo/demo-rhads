@@ -1,5 +1,6 @@
 {
   "recommendations": [
-    "redhat.fabric8-analytics"
+    "redhat.fabric8-analytics",
+    "dbaeumer.vscode-eslint"
   ]
 }

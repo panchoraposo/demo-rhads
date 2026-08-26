@@ -54,7 +54,6 @@
             - CreateNamespace=true
             - SkipDryRunOnMissingResource=true
   loop:
-    - { name: minio, path: gitops/components/minio, ns: minio }
     - { name: odf, path: gitops/components/odf, ns: openshift-storage }
     - { name: keycloak, path: gitops/components/keycloak, ns: keycloak }
     - { name: rhtas, path: gitops/components/rhtas, ns: trusted-artifact-signer }
@@ -64,3 +63,50 @@
     - { name: nexus, path: gitops/components/nexus, ns: nexus }
     - { name: devspaces, path: gitops/components/devspaces, ns: openshift-devspaces }
     - { name: quay-ns, path: gitops/components/quay, ns: quay }
+
+- name: Ignore Fulcio issuer drift on rhads-rhtas (PostSync patches live SSO + Kubernetes OIDC)
+  kubernetes.core.k8s:
+    state: patched
+    kind: Application
+    api_version: argoproj.io/v1alpha1
+    name: rhads-rhtas
+    namespace: "{{ gitops_namespace }}"
+    definition:
+      spec:
+        ignoreDifferences:
+          - group: rhtas.redhat.com
+            kind: Securesign
+            jsonPointers:
+              - /spec/fulcio/config/OIDCIssuers
+        syncPolicy:
+          automated:
+            prune: false
+            selfHeal: true
+          syncOptions:
+            - CreateNamespace=true
+            - SkipDryRunOnMissingResource=true
+            - RespectIgnoreDifferences=true
+
+- name: Ignore RHDA OIDC secret created by PostSync on rhads-rhtpa
+  kubernetes.core.k8s:
+    state: patched
+    kind: Application
+    api_version: argoproj.io/v1alpha1
+    name: rhads-rhtpa
+    namespace: "{{ gitops_namespace }}"
+    definition:
+      spec:
+        ignoreDifferences:
+          - group: ""
+            kind: Secret
+            name: rhda-backend-oidc
+            jsonPointers:
+              - /data
+        syncPolicy:
+          automated:
+            prune: false
+            selfHeal: true
+          syncOptions:
+            - CreateNamespace=true
+            - SkipDryRunOnMissingResource=true
+            - RespectIgnoreDifferences=true

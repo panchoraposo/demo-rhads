@@ -12,6 +12,8 @@ spec:
   rekor:
     externalAccess:
       enabled: true
+    rekorSearchUI:
+      enabled: true
     monitoring:
       enabled: false
   trillian:
@@ -24,10 +26,18 @@ spec:
       enabled: true
     config:
       OIDCIssuers:
+        # Developer / gitsign identity (Keycloak). Issuer URL is patched to the
+        # live SSO route by the PostSync job (and by Ansible at install).
         - ClientID: trusted-artifact-signer
           Issuer: https://sso.apps.example.com/realms/backstage
           IssuerURL: https://sso.apps.example.com/realms/backstage
           Type: email
+        # Tekton Chains keyless: projected SA token audience "sigstore"
+        # (iss https://kubernetes.default.svc).
+        - ClientID: sigstore
+          Issuer: https://kubernetes.default.svc
+          IssuerURL: https://kubernetes.default.svc
+          Type: kubernetes
     certificate:
       organizationName: RHADS Demo
       organizationEmail: security@rhads.demo

@@ -1,4 +1,6 @@
 .git
 **/*.md
 .vscode
-node_modules
+.devcontainer
+.devfile.yaml
+catalog-info.yaml

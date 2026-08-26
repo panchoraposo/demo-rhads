@@ -132,13 +132,8 @@ quay_org: rhads
 quay_org_email: quayadmin@rhads.demo
 quay_robot_name: pipeline
 
-# --- Object storage (ODF MCG / NooBaa). MinIO kept only as a fallback during cutover. ---
+# --- Object storage (ODF MCG / NooBaa) ---
 odf_namespace: openshift-storage
-minio_namespace: minio
-minio_user: minio
-minio_password: "minio12345678"
-minio_quay_bucket: quay
-minio_tpa_bucket: trustify
 
 # --- RHTAS ---
 rhtas_namespace: trusted-artifact-signer

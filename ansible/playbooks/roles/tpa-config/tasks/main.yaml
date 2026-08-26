@@ -14,3 +14,6 @@
         client-secret: cli-demo-secret
         token-url: "https://{{ keycloak_hostname }}/realms/{{ keycloak_trustify_realm }}/protocol/openid-connect/token"
         tpa-url: "https://server{{ tpa_app_domain }}"
+
+- name: Seed TPA with OSV advisories for demo-vulnerable libraries
+  ansible.builtin.include_tasks: seed-advisories.yaml

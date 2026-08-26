@@ -26,7 +26,11 @@ spec:
   hostname:
     hostname: {{ keycloak_hostname }}
     strict: false
+    strictBackchannel: false
     backchannelDynamic: false
+  additionalOptions:
+    - name: cache
+      value: local
   proxy:
     headers: xforwarded
   ingress:

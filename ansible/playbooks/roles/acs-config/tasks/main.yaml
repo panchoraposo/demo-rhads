@@ -10,7 +10,7 @@
 
 - name: Read Central admin password
   ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} -n {{ acs_namespace }} get secret central-htpasswd -o jsonpath={.data.password}
+    cmd: oc --context {{ oc_context }} -n {{ acs_namespace }} get secret central-htpasswd -o jsonpath={{ '{.data.password}' }}
   register: acs_pw_raw
   failed_when: false
   changed_when: false
@@ -58,3 +58,73 @@
         central-host: "{{ (acs_route.resources[0].spec.host + ':443') if (acs_route.resources | default([]) | length > 0) else '' }}"
         central-url: "{{ ('https://' + acs_route.resources[0].spec.host) if (acs_route.resources | default([]) | length > 0) else '' }}"
   when: acs_route.resources | default([]) | length > 0
+
+- name: Read Quay dockerconfig for ACS registry integration
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: quay-dockerconfig
+    namespace: "{{ pipelines_namespace }}"
+  register: quay_dc_for_acs
+  failed_when: false
+
+- name: Parse Quay robot credentials
+  ansible.builtin.set_fact:
+    acs_quay_auth: "{{ (quay_dc_for_acs.resources[0].data['.dockerconfigjson'] | b64decode | from_json).auths }}"
+  when: quay_dc_for_acs.resources | default([]) | length > 0
+
+- name: Register in-cluster Quay as an ACS image integration
+  ansible.builtin.uri:
+    url: "https://{{ acs_route.resources[0].spec.host }}/v1/imageintegrations"
+    method: POST
+    user: admin
+    password: "{{ acs_pw_raw.stdout | b64decode }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body:
+      name: rhads-quay
+      type: docker
+      categories: ["REGISTRY"]
+      docker:
+        endpoint: "{{ (acs_quay_auth.keys() | list)[0] }}"
+        username: "{{ acs_quay_auth[(acs_quay_auth.keys() | list)[0]].username }}"
+        password: "{{ acs_quay_auth[(acs_quay_auth.keys() | list)[0]].password }}"
+        insecure: true
+      skipTestIntegration: true
+    status_code: [200, 201, 400, 409]
+  when:
+    - acs_route.resources | default([]) | length > 0
+    - acs_pw_raw.stdout | default('') | length > 0
+    - acs_quay_auth is defined
+  failed_when: false
+
+- name: List ACS policies
+  ansible.builtin.uri:
+    url: "https://{{ acs_route.resources[0].spec.host }}/v1/policies"
+    method: GET
+    user: admin
+    password: "{{ acs_pw_raw.stdout | b64decode }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200]
+  register: acs_policies
+  when:
+    - acs_route.resources | default([]) | length > 0
+    - acs_pw_raw.stdout | default('') | length > 0
+  failed_when: false
+
+- name: Report-only for Fixable Severity at least Important (UBI demo images)
+  ansible.builtin.uri:
+    url: "https://{{ acs_route.resources[0].spec.host }}/v1/policies/{{ item.id }}"
+    method: PUT
+    user: admin
+    password: "{{ acs_pw_raw.stdout | b64decode }}"
+    force_basic_auth: true
+    validate_certs: false
+    body_format: json
+    body: "{{ item | combine({'enforcementActions': []}) }}"
+    status_code: [200, 400]
+  loop: "{{ acs_policies.json.policies | default([]) | selectattr('name', 'equalto', 'Fixable Severity at least Important') | list }}"
+  when:
+    - acs_policies.json is defined
+  failed_when: false

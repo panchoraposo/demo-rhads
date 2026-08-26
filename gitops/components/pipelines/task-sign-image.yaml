@@ -59,16 +59,29 @@ spec:
           echo "FAIL: cosign.key not mounted from secret cosign-signing-key" >&2
           exit 1
         fi
-        echo "--- cosign sign (key pair + transparency log) ---"
+        # Cosign v3 defaults to OCI 1.1 referrers / protobuf bundles. Quay's Tags
+        # view only lists the classic sha256-<digest>.sig tag.
+        if [[ "${IMAGE}" == *@sha256:* ]]; then
+          IMAGE_REF="${IMAGE}"
+        else
+          TRI="$(cosign triangulate --allow-insecure-registry "${IMAGE}")"
+          HEX="${TRI##*:sha256-}"
+          HEX="${HEX%.sig}"
+          IMAGE_REF="${TRI%:*}@sha256:${HEX}"
+        fi
+        echo "Digest ref: ${IMAGE_REF}"
+        echo "--- cosign sign (legacy .sig tag + Rekor) ---"
         cosign sign --key /var/run/cosign/cosign.key \
           --yes \
           --tlog-upload=true \
           --rekor-url="${REKOR_URL}" \
           --use-signing-config=false \
+          --new-bundle-format=false \
           --allow-insecure-registry \
-          "${IMAGE}"
+          "${IMAGE_REF}"
         echo
-        echo "PASS: image signature uploaded. Look for .sig in Quay and a Rekor UUID above."
+        echo "PASS: signature uploaded. Quay tag: sha256-${IMAGE_REF##*sha256:}.sig"
+        cosign tree --allow-insecure-registry "${IMAGE_REF}" || true
       volumeMounts:
         - name: cosign-key
           mountPath: /var/run/cosign

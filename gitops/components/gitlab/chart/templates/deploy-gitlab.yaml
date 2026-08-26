@@ -28,6 +28,8 @@ spec:
         image: {{ .Values.gitlab.image }}
         imagePullPolicy: IfNotPresent
         env:
+        - name: FULCIO_ROOT_CERT_URL
+          value: "https://fulcio-server-trusted-artifact-signer.{{ $.Values.cluster.subdomain }}/api/v1/rootCert"
         - name: GITLAB_OMNIBUS_CONFIG
           valueFrom:
             configMapKeyRef:
@@ -113,6 +115,10 @@ spec:
         securityContext:
           privileged: true
           runAsUser: 0
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/bash", "/rhads-x509/install-fulcio-ca.sh"]
         startupProbe:
           httpGet:
             path: /users/sign_in
@@ -141,9 +147,20 @@ spec:
           subPath: etc-gitlab
         - mountPath: /var/log/gitlab
           name: gitlab-logs
+        - mountPath: /rhads-x509
+          name: rhads-x509
+          readOnly: true
+        - mountPath: /opt/gitlab/embedded/service/gitlab-rails/config/initializers/zz_rhads_x509.rb
+          name: rhads-x509
+          subPath: zz_rhads_x509.rb
+          readOnly: true
       volumes:
       - name: gitlab-data
         persistentVolumeClaim:
           claimName: gitlab-omnibus-data
       - name: gitlab-logs
         emptyDir: {}
+      - name: rhads-x509
+        configMap:
+          name: gitlab-rhads-x509
+          defaultMode: 0755

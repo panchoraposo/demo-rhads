@@ -16,7 +16,7 @@ spec:
       optional: true
   steps:
     - name: compile
-      image: registry.access.redhat.com/ubi9/openjdk-17:latest
+      image: registry.access.redhat.com/ubi8/openjdk-17:1.16
       env:
         - name: LANGUAGE
           value: $(params.LANGUAGE)
@@ -28,28 +28,52 @@ spec:
         echo "============================================================"
         echo "[SSSC] Compile application sources via Nexus"
         echo "Control: dependencies resolve from the platform Nexus (preloaded / proxied),"
-        echo "         not from random public mirrors at build time."
+        echo "         not from Maven Central. The local repo lives on the build PVC"
+        echo "         next to the git checkout (source/) so later PipelineRuns reuse it."
         echo "Language: ${LANGUAGE}"
         echo "============================================================"
         if [ "${LANGUAGE}" != "maven" ]; then
           echo "Skipping Maven (language=${LANGUAGE})"
           exit 0
         fi
-        cd "$(workspaces.source.path)"
+        ROOT="$(workspaces.source.path)"
+        APP="${ROOT}/source"
+        if [ ! -d "${APP}" ]; then
+          APP="${ROOT}"
+        fi
+        cd "${APP}"
         echo "tools: $(mvn -v | head -1)"
         SETTINGS="$(workspaces.maven-settings.path)/settings.xml"
+        MVN_ARGS=(-B -DskipTests -T 1C)
         if [ -f "${SETTINGS}" ]; then
           echo "Maven settings: ${SETTINGS}"
-          grep -E '<url>|<id>|<mirrorOf>' "${SETTINGS}" || true
-          mvn -B -s "${SETTINGS}" package -DskipTests
+          grep -E '<url>|<id>|<mirrorOf>|<updatePolicy>' "${SETTINGS}" || true
+          MVN_ARGS+=(-s "${SETTINGS}")
         else
           echo "WARN: Nexus settings.xml not mounted; Maven will use defaults"
-          mvn -B package -DskipTests
         fi
+        # Sibling of source/ on the persistent build PVC. git-clone only mounts source/.
+        REPO="${ROOT}/repository"
+        mkdir -p "${REPO}"
+        CACHE_KB="$(du -sk "${REPO}" 2>/dev/null | awk '{print $1}')"
+        echo "Persistent Maven local repository: ${REPO} ($(du -sh "${REPO}" 2>/dev/null | awk '{print $1}'))"
+        MVN_ARGS+=("-Dmaven.repo.local=${REPO}")
+        if [ "${CACHE_KB:-0}" -gt 10240 ]; then
+          echo "CACHE WARM: ${CACHE_KB} KiB already on the PVC; Maven offline first"
+          if ! mvn "${MVN_ARGS[@]}" -o package; then
+            echo "CACHE WARM incomplete; resolving missing artifacts from Nexus"
+            mvn "${MVN_ARGS[@]}" package
+          fi
+        else
+          echo "CACHE COLD: resolving via Nexus into the persistent local repository"
+          mvn "${MVN_ARGS[@]}" package
+        fi
+        chmod -R g+rwX "${APP}/target" 2>/dev/null || true
+        echo "Maven cache after build: $(du -sh "${REPO}" | awk '{print $1}')"
         echo
-        echo "PASS: Maven package completed (Nexus-backed). Artifacts are in target/ for OpenShift Builds."
+        echo "PASS: Maven package completed (Nexus + persistent local cache). Artifacts are in target/."
     - name: npm
-      image: registry.access.redhat.com/ubi9/nodejs-20:latest
+      image: registry.access.redhat.com/ubi9/nodejs-18:1-108
       env:
         - name: LANGUAGE
           value: $(params.LANGUAGE)
@@ -63,12 +87,34 @@ spec:
         echo "============================================================"
         echo "[SSSC] npm install via Nexus"
         echo "Control: the registry is the platform Nexus npm group, not registry.npmjs.org."
+        echo "         The npm cache lives on the build PVC next to the git checkout."
         echo "============================================================"
-        cd "$(workspaces.source.path)"
+        ROOT="$(workspaces.source.path)"
+        APP="${ROOT}/source"
+        if [ ! -d "${APP}" ]; then
+          APP="${ROOT}"
+        fi
+        cd "${APP}"
         echo "tools: node=$(node -v) npm=$(npm -v)"
         if [ -f "$(workspaces.maven-settings.path)/.npmrc" ]; then
           cp "$(workspaces.maven-settings.path)/.npmrc" "${HOME}/.npmrc"
           echo "npmrc: $(cat "${HOME}/.npmrc")"
         fi
-        npm ci --omit=dev || npm install --omit=dev
-        echo "PASS: npm install completed (Nexus-backed)."
+        export npm_config_cache="${ROOT}/npm"
+        mkdir -p "${npm_config_cache}"
+        echo "Persistent npm cache: ${npm_config_cache} ($(du -sh "${npm_config_cache}" 2>/dev/null | awk '{print $1}'))"
+        NPM_ARGS=(--omit=dev --no-audit --no-fund --cache="${npm_config_cache}")
+        if [ -d "${npm_config_cache}/_cacache" ]; then
+          echo "CACHE WARM: npm --offline"
+          NPM_ARGS+=(--offline)
+        else
+          echo "CACHE COLD: npm --prefer-offline (fill persistent cache from Nexus)"
+          NPM_ARGS+=(--prefer-offline)
+        fi
+        if [ -f package-lock.json ]; then
+          npm ci "${NPM_ARGS[@]}" || { echo "offline/ci failed; retrying from Nexus"; npm ci --omit=dev --prefer-offline --no-audit --no-fund --cache="${npm_config_cache}"; }
+        else
+          npm install "${NPM_ARGS[@]}" || npm install --omit=dev --prefer-offline --no-audit --no-fund --cache="${npm_config_cache}"
+        fi
+        echo "npm cache after install: $(du -sh "${npm_config_cache}" | awk '{print $1}')"
+        echo "PASS: npm install completed (Nexus + persistent cache). node_modules will be copied into the image."

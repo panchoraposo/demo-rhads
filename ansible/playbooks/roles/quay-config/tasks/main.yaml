@@ -132,11 +132,62 @@
   register: robot_account
   when: quay_api_token | length > 0
 
+- name: Read robot token when create did not return one
+  ansible.builtin.uri:
+    url: "https://{{ quay_url }}/api/v1/organization/{{ quay_org }}/robots/{{ quay_robot_name }}"
+    method: GET
+    validate_certs: false
+    follow_redirects: all
+    headers:
+      Authorization: "Bearer {{ quay_api_token }}"
+    status_code: [200]
+  register: robot_account_get
+  when:
+    - quay_api_token | length > 0
+    - robot_account.json.token | default('') | length == 0
+
 - name: Save robot token
   ansible.builtin.set_fact:
     quay_robot_username: "{{ robot_account.json.name | default(quay_org + '+' + quay_robot_name) }}"
     quay_robot_token: "{{ robot_account.json.token | default('') }}"
   when: robot_account is not skipped
+
+- name: Use existing robot token from GET
+  ansible.builtin.set_fact:
+    quay_robot_username: "{{ robot_account_get.json.name | default(quay_robot_username) }}"
+    quay_robot_token: "{{ robot_account_get.json.token }}"
+  when:
+    - robot_account_get is defined
+    - robot_account_get is not skipped
+    - robot_account_get.json.token | default('') | length > 0
+
+- name: Create team that can create repositories
+  ansible.builtin.uri:
+    url: "https://{{ quay_url }}/api/v1/organization/{{ quay_org }}/team/pipeline-creators?includeMembers=false"
+    method: PUT
+    validate_certs: false
+    follow_redirects: all
+    headers:
+      Authorization: "Bearer {{ quay_api_token }}"
+    body_format: json
+    body:
+      name: pipeline-creators
+      role: creator
+    status_code: [200, 201, 400, 409]
+  when: quay_api_token | length > 0
+
+- name: Add pipeline robot to creator team
+  ansible.builtin.uri:
+    url: "https://{{ quay_url }}/api/v1/organization/{{ quay_org }}/team/pipeline-creators/members/{{ quay_org }}+{{ quay_robot_name }}"
+    method: PUT
+    validate_certs: false
+    follow_redirects: all
+    headers:
+      Authorization: "Bearer {{ quay_api_token }}"
+    body_format: json
+    body: {}
+    status_code: [200, 201, 204, 400, 409]
+  when: quay_api_token | length > 0
 
 - name: Create dockerconfig secret in rhads-ci
   kubernetes.core.k8s:

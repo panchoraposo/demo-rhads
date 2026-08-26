@@ -38,6 +38,10 @@ gitlab:
     otp: "0123456789"
     secret: "0123456789"
 
+  runner:
+    image: docker.io/gitlab/gitlab-runner:v19.3.0
+    token: pending
+
   ssh:
     host: "gitlab-gitlab.apps.cluster-htghs.htghs.sandbox440.opentlc.com"
     port: 22
@@ -88,11 +92,7 @@ gitlab:
         storageClass: "gp3-csi"
         size: 5Gi
   minio:
-    enabled: true
-    persistence:
-      enabled: true
-      storageClass: "gp3-csi"
-      size: 10Gi
+    enabled: false
 
 
 # --- DATABASE SETTINGS ---

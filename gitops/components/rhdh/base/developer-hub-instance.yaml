@@ -24,3 +24,56 @@ spec:
       enabled: true
   database:
     enableLocalDb: true
+  # Hub caches Issuer.discover at process start. After a cluster stop/start,
+  # Keycloak is often still 503 then; OIDC stays 500 until the Hub pod restarts.
+  # Block the backend until SSO discovery works so the cache is populated healthy.
+  deployment:
+    patch:
+      spec:
+        template:
+          spec:
+            initContainers:
+              - name: wait-for-sso
+                image: registry.redhat.io/openshift4/ose-cli:latest
+                command: ["/bin/bash", "-c"]
+                args:
+                  - |
+                    set -euo pipefail
+                    KC_URL="http://keycloak-service.keycloak.svc:8080/realms/backstage/.well-known/openid-configuration"
+                    echo "Waiting for in-cluster Keycloak at ${KC_URL}"
+                    i=0
+                    while [ "$i" -lt 180 ]; do
+                      if curl -sf --max-time 5 "${KC_URL}" -o /tmp/oidc.json; then
+                        echo "Keycloak service is serving the backstage realm"
+                        break
+                      fi
+                      i=$((i + 1))
+                      echo "Keycloak not ready (${i}/180)"
+                      sleep 5
+                    done
+                    test -s /tmp/oidc.json
+                    HOST="$(sed -n 's/.*"issuer"[[:space:]]*:[[:space:]]*"https\?:\/\/\([^"/:]*\).*/\1/p' /tmp/oidc.json | head -1)"
+                    if [ -z "${HOST}" ]; then
+                      echo "WARN: could not parse issuer host; continuing"
+                      exit 0
+                    fi
+                    PUB="https://${HOST}/realms/backstage/.well-known/openid-configuration"
+                    echo "Waiting for public SSO at ${PUB}"
+                    i=0
+                    while [ "$i" -lt 180 ]; do
+                      if curl -skf --max-time 8 "${PUB}" | grep -q '"issuer"'; then
+                        echo "Public SSO discovery is ready"
+                        exit 0
+                      fi
+                      i=$((i + 1))
+                      echo "Public SSO not ready (${i}/180)"
+                      sleep 5
+                    done
+                    echo "FAIL: public SSO never became ready"
+                    exit 1
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 128Mi
+                  limits:
+                    memory: 256Mi

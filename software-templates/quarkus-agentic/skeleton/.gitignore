@@ -21,8 +21,10 @@ bin/
 # NetBeans
 nb-configuration.xml
 
-# Visual Studio Code
-.vscode
+# Visual Studio Code (keep recommended extensions and RHDA settings for Dev Spaces)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 .factorypath
 
 # OSX

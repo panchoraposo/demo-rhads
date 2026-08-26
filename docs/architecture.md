@@ -39,6 +39,7 @@ flowchart LR
   RHBK --> TPA
   RHDH --> GL
   RHDH --> DS
+  DS -->|RHDA| TPA
   GL -->|push| PIPE
   GL -->|tag| PIPE
   GL -->|release| PIPE
@@ -73,9 +74,9 @@ Each build pipeline:
 6. `cosign attest` SBOM + `cosign attach sbom`
 7. `roxctl image scan` and `image check` (ACS)
 8. Upload SBOM to Trusted Profile Analyzer
-9. `ec validate image` (Conforma; STRICT on staging/prod)
+9. `ec validate image` against documented Conforma collections **`@redhat`** and **`@slsa3`** (STRICT on staging/prod). Image signatures may use the demo key; Chains provenance is verified keyless (Fulcio identity + Rekor + TUF).
 10. Commit the digest to the GitOps overlay + GitLab comment
-11. Tekton Chains signs the PipelineRun (in-toto / SLSA)
+11. Tekton Chains signs TaskRun/PipelineRun **keyless**: Fulcio issues a short-lived cert for `tekton-chains-controller` (Kubernetes OIDC), Rekor records the signature, TUF distributes the RHTAS trust root. Format is in-toto / SLSA.
 
 ## Software templates
 

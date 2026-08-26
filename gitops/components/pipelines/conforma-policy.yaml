@@ -6,19 +6,47 @@ metadata:
   labels:
     app.kubernetes.io/part-of: rhads-demo
 data:
+  # Documented collections: https://conforma.dev/docs/policy/release_policy.html
+  # Config sources: github.com/conforma/config//{redhat,redhat-no-hermetic,slsa3}
   policy.yaml: |
     ---
+    name: Red Hat + SLSA3
+    description: >
+      Official Conforma collections @redhat and @slsa3
+      (https://conforma.dev/docs/policy/release_policy.html,
+      github.com/conforma/config//{redhat,slsa3}). Hermetic/prefetch
+      excludes match github.com/conforma/config//redhat-no-hermetic
+      because this demo builds with OpenShift Builds and Nexus, not
+      Konflux hermetic builds.
     sources:
-      - policy:
-          - github.com/conforma/policy//policy/release?ref=v0.7.0
+      - name: Default
+        policy:
+          - github.com/conforma/policy//policy/lib
+          - github.com/conforma/policy//policy/release
+        data:
+          - github.com/release-engineering/rhtap-ec-policy//data
         config:
           include:
-            - attestation_task_bundle
-            - slsa_source_version_controlled
-            - slsa_build_scripted_build
+            - '@redhat'
+            - '@slsa3'
+          exclude:
+            - hermetic_build_task
+            - tasks.required_tasks_found:prefetch-dependencies
+            # Not Konflux: cluster-local tasks + OpenShift Builds, not buildah/catalog.
+            - trusted_task
+            - buildah_build_task
+            - slsa_build_scripted_build.image_built_by_trusted_task
+            # CVEs are enforced by ACS in this demo, not Konflux clair attestations.
+            - cve
+            # Same skip as github.com/conforma/config//tekton-slsa3-v0.7
+            - slsa_source_correlated
+            - slsa_source_correlated.attested_source_code_reference
+            - slsa_source_correlated.source_code_reference_provided
+            # Chains stores TaskRun attestations; Konflux expects a PipelineRun
+            # attestation + source-container + on-prem CPE labels.
+            - attestation_type.pipelinerun_attestation_found
             - source_image
-          exclude: []
-    description: >
-      Demo Conforma policy for RHADS. Pipelines generate a signed image, SBOM
-      attestation and Rekor entry. Promotion to staging/production runs this
-      policy; STRICT=true on the production pipeline.
+            - labels.required_labels
+        ruleData:
+          allowed_builder_ids:
+            - https://tekton.dev/chains/v2

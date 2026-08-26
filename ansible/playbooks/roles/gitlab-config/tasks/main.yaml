@@ -17,5 +17,8 @@
 - name: Configure Dev Spaces GitLab OAuth
   include_tasks: configure-devspaces.yaml
 
+- name: Disable Auto DevOps and register the docs runner
+  include_tasks: ci-runner.yaml
+
 - name: Render software-template hostnames and push
   include_tasks: render-templates.yaml

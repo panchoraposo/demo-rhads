@@ -28,25 +28,34 @@
   ansible.builtin.set_fact:
     backstage_client_secret: "{{ client_secret_response.json.value }}"
 
+# Keycloak GET representations use secret: "**********". Putting that
+# representation back would replace the rotated secret and break Hub login.
 - name: Update backstage redirect URIs
   ansible.builtin.uri:
     url: "https://{{ keycloak_hostname }}/admin/realms/{{ keycloak_realm }}/clients/{{ client_info.json[0].id }}"
     method: PUT
     headers:
       Authorization: "Bearer {{ kc_token }}"
-    body:
-      "{{ client_info.json[0] | combine({
-        'redirectUris': [
-          'https://backstage-developer-hub-backstage.' + openshift_base_domain + '/*',
-          'https://backstage-developer-hub-backstage.' + openshift_base_domain + '/oauth2/callback',
-          'https://backstage-developer-hub-backstage.' + openshift_base_domain + '/api/auth/oidc/handler/frame',
-          'https://backstage-developer-hub-backstage.' + openshift_base_domain
-        ],
-        'webOrigins': ['+'],
-        'serviceAccountsEnabled': true,
-        'publicClient': false,
-        'directAccessGrantsEnabled': true
-      }) }}"
+    body: >-
+      {{
+        client_info.json[0]
+        | combine({
+            'redirectUris': [
+              'https://backstage-developer-hub-backstage.' + openshift_base_domain + '/*',
+              'https://backstage-developer-hub-backstage.' + openshift_base_domain + '/oauth2/callback',
+              'https://backstage-developer-hub-backstage.' + openshift_base_domain + '/api/auth/oidc/handler/frame',
+              'https://backstage-developer-hub-backstage.' + openshift_base_domain
+            ],
+            'webOrigins': ['+'],
+            'serviceAccountsEnabled': true,
+            'publicClient': false,
+            'directAccessGrantsEnabled': true
+          })
+        | dict2items
+        | rejectattr('key', 'equalto', 'secret')
+        | list
+        | items2dict
+      }}
     body_format: json
     status_code: [204, 200]
     validate_certs: false
@@ -114,10 +123,61 @@
       publicClient: true
       standardFlowEnabled: true
       directAccessGrantsEnabled: true
-      redirectUris: ["*"]
+      redirectUris:
+        - "*"
+        - "http://localhost:*"
+        - "http://127.0.0.1:*"
+        - "http://localhost:*/auth/callback"
+        - "http://127.0.0.1:*/auth/callback"
+        - "urn:ietf:wg:oauth:2.0:oob"
+        - "urn:ietf:wg:oauth:2.0:oob:auto"
       webOrigins: ["+"]
     body_format: json
     status_code: [201, 409]
+    validate_certs: false
+
+- name: Lookup Fulcio / RHTAS client
+  ansible.builtin.uri:
+    url: "https://{{ keycloak_hostname }}/admin/realms/{{ keycloak_realm }}/clients?clientId=trusted-artifact-signer"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ kc_token }}"
+    validate_certs: false
+  register: tas_client_info
+
+# POST 409 leaves a stale client. gitsign in Dev Spaces cannot open a browser, so
+# it uses the OOB redirect URN; Keycloak 26 treats "*" as http(s) only.
+- name: Update Fulcio / RHTAS redirect URIs
+  ansible.builtin.uri:
+    url: "https://{{ keycloak_hostname }}/admin/realms/{{ keycloak_realm }}/clients/{{ tas_client_info.json[0].id }}"
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ kc_token }}"
+    body: >-
+      {{
+        tas_client_info.json[0]
+        | combine({
+            'redirectUris': [
+              '*',
+              'http://localhost:*',
+              'http://127.0.0.1:*',
+              'http://localhost:*/auth/callback',
+              'http://127.0.0.1:*/auth/callback',
+              'urn:ietf:wg:oauth:2.0:oob',
+              'urn:ietf:wg:oauth:2.0:oob:auto'
+            ],
+            'webOrigins': ['+'],
+            'publicClient': true,
+            'standardFlowEnabled': true,
+            'directAccessGrantsEnabled': true
+          })
+        | dict2items
+        | rejectattr('key', 'equalto', 'secret')
+        | list
+        | items2dict
+      }}
+    body_format: json
+    status_code: [204, 200]
     validate_certs: false
 
 - name: Store client secrets in the cluster

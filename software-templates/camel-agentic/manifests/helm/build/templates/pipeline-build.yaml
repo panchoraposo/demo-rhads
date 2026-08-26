@@ -31,6 +31,15 @@ spec:
     - name: source-folder
     - name: maven-settings
     - name: docker-config
+  results:
+    - name: IMAGE_URL
+      value: $(tasks.openshift-build.results.IMAGE_URL)
+    - name: IMAGE_DIGEST
+      value: $(tasks.openshift-build.results.IMAGE_DIGEST)
+    - name: SCAN_OUTPUT
+      value: $(tasks.acs-scan.results.SCAN_OUTPUT)
+    - name: LINK_TO_SBOM
+      value: $(tasks.generate-sbom.results.LINK_TO_SBOM)
   tasks:
     - name: git-clone
       taskRef:
@@ -73,7 +82,7 @@ spec:
       params:
         - { name: LANGUAGE, value: {{ .Values.build.language | quote }} }
       workspaces:
-        - { name: source, workspace: source-folder, subPath: source }
+        - { name: source, workspace: source-folder }
         - { name: maven-settings, workspace: maven-settings }
 {{- end }}
 
@@ -109,6 +118,7 @@ spec:
         - { name: IMAGE, value: "$(params.output-image):$(params.image-tag)" }
         - { name: SOURCE_NAME, value: $(params.component-id) }
         - { name: SOURCE_VERSION, value: $(params.image-tag) }
+        - { name: TPA_URL, value: "https://server.{{ .Values.cluster.subdomain }}/" }
       workspaces:
         - { name: source, workspace: source-folder, subPath: source }
         - { name: dockerconfig, workspace: docker-config }
@@ -122,7 +132,7 @@ spec:
           - { name: name, value: rhads-sign-image }
           - { name: namespace, value: rhads-ci }
       params:
-        - { name: IMAGE, value: "$(params.output-image):$(params.image-tag)" }
+        - { name: IMAGE, value: "$(params.output-image)@$(tasks.openshift-build.results.IMAGE_DIGEST)" }
         - { name: FULCIO_URL, value: https://fulcio-server-trusted-artifact-signer.{{ .Values.cluster.subdomain }} }
         - { name: REKOR_URL, value: https://rekor-server-trusted-artifact-signer.{{ .Values.cluster.subdomain }} }
       workspaces:
@@ -137,7 +147,7 @@ spec:
           - { name: name, value: rhads-attest-sbom }
           - { name: namespace, value: rhads-ci }
       params:
-        - { name: IMAGE, value: "$(params.output-image):$(params.image-tag)" }
+        - { name: IMAGE, value: "$(params.output-image)@$(tasks.openshift-build.results.IMAGE_DIGEST)" }
         - { name: REKOR_URL, value: https://rekor-server-trusted-artifact-signer.{{ .Values.cluster.subdomain }} }
       workspaces:
         - { name: source, workspace: source-folder, subPath: source }

@@ -6,6 +6,7 @@ resources:
   - dynamic-plugins-rhdh.yaml
   - rbac-policy.yaml
   - catalog-static.yaml
+  - oidc-watchdog.yaml
 
 configMapGenerator:
   - name: developer-hub-config

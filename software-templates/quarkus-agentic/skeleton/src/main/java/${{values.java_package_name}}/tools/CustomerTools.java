@@ -12,6 +12,7 @@ import ${{values.java_package_name}}.enums.CustomerType;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.math.BigDecimal;
@@ -389,9 +390,9 @@ public class CustomerTools {
         sb.append("Customer Information:\n");
         sb.append("===================\n");
         sb.append("ID: ").append(customer.id).append("\n");
-        sb.append("Name: ").append(customer.nombre).append(" ").append(customer.apellido).append("\n");
+        sb.append("Name: ").append(StringEscapeUtils.escapeJava(customer.nombre)).append(" ").append(StringEscapeUtils.escapeJava(customer.apellido)).append("\n");
         sb.append("Identification: ").append(customer.identificacion).append(" (").append(customer.tipoIdentificacion).append(")\n");
-        sb.append("Email: ").append(customer.email).append("\n");
+        sb.append("Email: ").append(StringEscapeUtils.escapeJava(customer.email)).append("\n");
         sb.append("Phone: ").append(customer.telefono).append("\n");
         
         if (customer.ciudad != null) {

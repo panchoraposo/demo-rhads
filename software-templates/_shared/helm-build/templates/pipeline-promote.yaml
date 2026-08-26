@@ -40,6 +40,7 @@ spec:
           - { name: namespace, value: rhads-ci }
       params:
         - { name: IMAGE, value: "$(params.output-image):$(params.image-tag)" }
+        - { name: STRICT, value: $(params.strict) }
 
     - name: conforma
       runAfter: [acs-check]

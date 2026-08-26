@@ -101,7 +101,6 @@
     -p '{"spec":{"source":{"repoURL":"{{ gitlab_platform_repo }}","targetRevision":"main"}}}'
   loop:
     - rhads-operators
-    - rhads-minio
     - rhads-odf
     - rhads-keycloak
     - rhads-rhtas

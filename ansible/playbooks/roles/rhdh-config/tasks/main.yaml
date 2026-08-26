@@ -61,7 +61,7 @@
 
 - name: Wait for SA token
   ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} -n {{ rhdh_namespace }} get secret topology-sa-token -o jsonpath={.data.token}
+    cmd: oc --context {{ oc_context }} -n {{ rhdh_namespace }} get secret topology-sa-token -o jsonpath={{ '{.data.token}' }}
   register: topology_token_raw
   until: topology_token_raw.stdout | length > 0
   retries: 15
@@ -69,10 +69,11 @@
   changed_when: false
 
 - name: Read Argo CD admin password
-  ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} -n {{ gitops_namespace }} get secret openshift-gitops-cluster -o jsonpath="{.data['admin.password']}"
-  register: argocd_password_raw
-  changed_when: false
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: openshift-gitops-cluster
+    namespace: "{{ gitops_namespace }}"
+  register: argocd_cluster_secret
 
 - name: Read existing backstage-env
   kubernetes.core.k8s_info:
@@ -85,7 +86,7 @@
   ansible.builtin.set_fact:
     backend_secret_value: "{{ (existing_backstage_env.resources[0].data.BACKEND_SECRET | b64decode) if (existing_backstage_env.resources | default([]) | length > 0 and existing_backstage_env.resources[0].data.BACKEND_SECRET is defined) else lookup('password', '/dev/null length=48 chars=ascii_letters,digits') }}"
     kubernetes_sa_token: "{{ topology_token_raw.stdout | b64decode }}"
-    argocd_password: "{{ argocd_password_raw.stdout | b64decode }}"
+    argocd_password: "{{ argocd_cluster_secret.resources[0].data['admin.password'] | b64decode }}"
     quay_ui_url: "https://{{ quay_url | default(quay_host) }}"
     backstage_client_secret: "{{ backstage_client_secret | default((existing_backstage_env.resources[0].data.OAUTH_CLIENT_SECRET | b64decode) if (existing_backstage_env.resources | default([]) | length > 0 and existing_backstage_env.resources[0].data.OAUTH_CLIENT_SECRET is defined) else '') }}"
 

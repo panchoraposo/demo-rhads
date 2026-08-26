@@ -2,6 +2,8 @@ schemaVersion: 2.2.0
 metadata:
   name: ${{values.component_id}}
   projectType: nodejs
+attributes:
+  controller.devfile.io/storage-type: per-user
 components:
   - name: tools
     container:
@@ -17,14 +19,26 @@ components:
           value: https://sso.${{values.cluster_subdomain}}/realms/backstage
         - name: GITSIGN_OIDC_CLIENT_ID
           value: trusted-artifact-signer
+        - name: GITSIGN_TUF_URL
+          value: https://tuf-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_CERT_IDENTITY
+          value: dev1@rhads.demo
+        - name: CLUSTER_SUBDOMAIN
+          value: ${{values.cluster_subdomain}}
         - name: NPM_CONFIG_REGISTRY
           value: http://nexus.nexus.svc:8081/repository/npm-group/
 commands:
   - id: setup-gitsign
     exec:
-      label: Configure Sigstore git commit signing (gitsign / cosign trust root)
+      label: Configure Sigstore git commit signing (gitsign + RHTAS TUF)
       component: tools
       commandLine: bash .devcontainer/setup-gitsign.sh
+      workingDir: ${PROJECT_SOURCE}
+  - id: verify-gitsign
+    exec:
+      label: Verify Sigstore-signed HEAD (gitsign + RHTAS TUF)
+      component: tools
+      commandLine: bash .devcontainer/verify-gitsign.sh
       workingDir: ${PROJECT_SOURCE}
   - id: install
     exec:
@@ -36,6 +50,4 @@ commands:
       component: tools
       commandLine: npm start
       workingDir: ${PROJECT_SOURCE}
-events:
-  postStart:
-    - setup-gitsign
+# Demo: Command palette → Configure Sigstore… then commit, then Verify Sigstore-signed HEAD.

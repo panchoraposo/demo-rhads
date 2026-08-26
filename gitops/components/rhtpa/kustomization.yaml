@@ -7,3 +7,6 @@ resources:
   - secrets.yaml
   - postgresql.yaml
   - storage-pvc.yaml
+  - rhda-backend.yaml
+  - job-patch-rhda-oidc.yaml
+  - cronjob-analyze.yaml

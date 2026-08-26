@@ -45,8 +45,10 @@ spec:
       enabled: true
     migrateDatabase:
       enabled: true
+    # Default CVE / GitHub OSV / Red Hat CSAF importers stay disabled: a full
+    # clone does not fit this sandbox. tpa-config seeds matching OSV GHSAs.
     createImporters:
-      enabled: false
+      enabled: true
     server:
       enabled: true
       replicas: 1
@@ -55,7 +57,7 @@ spec:
           cpu: 250m
           memory: 1Gi
     importer:
-      enabled: false
+      enabled: true
       replicas: 1
       concurrency: 1
       resources:

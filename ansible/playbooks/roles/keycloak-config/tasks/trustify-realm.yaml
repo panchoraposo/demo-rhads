@@ -120,3 +120,4 @@
   when:
     - trustify_clients.json | selectattr('clientId', 'equalto', item.0.clientId) | list | length > 0
     - trustify_scopes.json | selectattr('name', 'equalto', item.1) | list | length > 0
+    - item.1 not in ((trustify_clients.json | selectattr('clientId', 'equalto', item.0.clientId) | first).defaultClientScopes | default([]))

@@ -5,6 +5,11 @@ metadata:
   namespace: rhads-ci
   labels:
     app.kubernetes.io/part-of: rhads-demo
+  annotations:
+    task.output.location: results
+    task.results.format: application/text
+    task.results.type: external-link
+    task.results.key: LINK_TO_SBOM
 spec:
   params:
     - name: IMAGE
@@ -14,6 +19,9 @@ spec:
     - name: SOURCE_VERSION
       type: string
       default: latest
+    - name: TPA_URL
+      type: string
+      default: ""
   workspaces:
     - name: source
     - name: dockerconfig
@@ -21,6 +29,8 @@ spec:
   results:
     - name: SBOM_PATH
       description: Path of the CycloneDX SBOM
+    - name: LINK_TO_SBOM
+      description: TPA URL opened by the RHDH CI SBOM action
   steps:
     - name: syft
       image: registry.access.redhat.com/ubi9/ubi:9.6
@@ -31,6 +41,8 @@ spec:
           value: $(params.SOURCE_NAME)
         - name: SOURCE_VERSION
           value: $(params.SOURCE_VERSION)
+        - name: TPA_URL
+          value: $(params.TPA_URL)
         - name: HOME
           value: /tekton/home
       script: |
@@ -61,6 +73,12 @@ spec:
           -o "cyclonedx-json=$(workspaces.source.path)/sbom/sbom.cdx.json" \
           -o "spdx-json=$(workspaces.source.path)/sbom/sbom.spdx.json"
         echo -n "$(workspaces.source.path)/sbom/sbom.cdx.json" > "$(results.SBOM_PATH.path)"
+        if [ -n "${TPA_URL}" ]; then
+          tpa="${TPA_URL%/}"
+          echo -n "${tpa}/" > "$(results.LINK_TO_SBOM.path)"
+        else
+          echo -n "${IMAGE}" > "$(results.LINK_TO_SBOM.path)"
+        fi
         echo
         echo "--- CycloneDX components (first 20) ---"
         python3 - <<PY || head -c 2000 "$(workspaces.source.path)/sbom/sbom.cdx.json"

@@ -7,23 +7,34 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   components:
-    cheServer: {}
+    cheServer:
+      extraProperties:
+        # fabric8 default is 10s; SNO API often exceeds that when creating workspace RBAC
+        KUBERNETES_REQUEST_TIMEOUT: "60000"
+        KUBERNETES_CONNECTION_TIMEOUT: "30000"
     dashboard: {}
     devfileRegistry: {}
-    pluginRegistry: {}
+    pluginRegistry:
+      # Public Open VSX so RHDA / Java / Quarkus vsix files resolve (embedded registry is a subset).
+      openVSXURL: https://open-vsx.org
+    imagePuller:
+      enable: false
   containerRegistry: {}
   devEnvironments:
     defaultEditor: che-incubator/che-code/latest
     disableContainerBuildCapabilities: false
+    startTimeoutSeconds: 600
+    # Keep the demo workspace warm; first start is dominated by UDI/che-code image pulls.
+    secondsOfInactivityBeforeIdling: -1
+    secondsOfRunBeforeIdling: -1
     maxNumberOfRunningWorkspacesPerUser: 2
     maxNumberOfWorkspacesPerUser: 5
+    persistUserHome:
+      enabled: true
+    storage:
+      pvcStrategy: per-user
     defaultNamespace:
       autoProvision: true
       template: <username>-devspaces
-    defaultPlugins:
-      - editor: che-incubator/che-code/latest
-        plugins:
-          - https://open-vsx.org/vscode/item?itemName=redhat.fabric8-analytics
-          - https://open-vsx.org/vscode/item?itemName=redhat.java
   gitServices: {}
   networking: {}

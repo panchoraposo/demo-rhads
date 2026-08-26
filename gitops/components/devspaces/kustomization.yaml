@@ -4,3 +4,4 @@ namespace: openshift-devspaces
 resources:
   - namespace.yaml
   - checluster.yaml
+  - vscode-editor-configurations.yaml

@@ -5,6 +5,11 @@ metadata:
   namespace: rhads-ci
   labels:
     app.kubernetes.io/part-of: rhads-demo
+  annotations:
+    task.results.format: application/json
+    task.results.type: ec
+    task.output.location: logs
+    task.results.container: step-report-json
 spec:
   params:
     - name: IMAGE
@@ -17,6 +22,9 @@ spec:
       default: /var/run/cosign/cosign.pub
     - name: REKOR_URL
       type: string
+    - name: TUF_URL
+      type: string
+      default: ""
     - name: STRICT
       type: string
       default: "false"
@@ -24,15 +32,38 @@ spec:
       type: string
       default: dev
   steps:
+    - name: fetch-policy
+      image: registry.redhat.io/openshift4/ose-cli:latest
+      env:
+        - name: HOME
+          value: /tmp
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        # Cluster Tasks mount ConfigMaps from the TaskRun namespace. App copies
+        # go stale; always read the platform CM from rhads-ci.
+        oc get configmap rhads-conforma-policy -n rhads-ci \
+          -o jsonpath='{.data.policy\.yaml}' > /policy/policy.yaml
+        test -s /policy/policy.yaml
+        echo "Loaded rhads-ci/rhads-conforma-policy ($(wc -l < /policy/policy.yaml) lines)"
+      volumeMounts:
+        - name: policy
+          mountPath: /policy
     - name: conforma
       image: quay.io/conforma/cli:latest
       env:
+        - name: HOME
+          value: /tmp
+        - name: XDG_CACHE_HOME
+          value: /tmp/.cache
         - name: IMAGE
           value: $(params.IMAGE)
         - name: POLICY
           value: $(params.POLICY)
         - name: REKOR_URL
           value: $(params.REKOR_URL)
+        - name: TUF_URL
+          value: $(params.TUF_URL)
         - name: STRICT
           value: $(params.STRICT)
         - name: ENVIRONMENT
@@ -40,33 +71,66 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -euo pipefail
+        mkdir -p /tmp/.sigstore /tmp/.cache /tmp/.docker
         echo "============================================================"
         echo "[SSSC] Conforma / Enterprise Contract (${ENVIRONMENT})"
-        echo "Control: policy-as-code over signature, SBOM attestation and SLSA."
+        echo "Control: policy-as-code — documented @redhat + @slsa3 collections."
         echo "Image:  ${IMAGE}"
         echo "Rekor:  ${REKOR_URL}"
         echo "STRICT: ${STRICT}  (true = promotion gate; false = report only on dev)"
+        echo "Note:   --ignore-rekor (Cosign v3 RekorLogs SIGSEGV workaround; Fulcio + key still verify)"
         echo "============================================================"
-        if [ ! -f /policy/policy.yaml ]; then
-          echo "WARN: ConfigMap rhads-conforma-policy not mounted"
-        else
-          echo "--- policy.yaml ---"
-          cat /policy/policy.yaml
-          echo
+        if [ -z "${TUF_URL}" ]; then
+          TUF_URL="${REKOR_URL/rekor-server-trusted-artifact-signer/tuf-trusted-artifact-signer}"
         fi
+        echo "TUF:    ${TUF_URL}"
+        export TUF_MIRROR="${TUF_URL}"
+        export SIGSTORE_TUF_MIRROR="${TUF_URL}"
+        if [ ! -f /policy/policy.yaml ]; then
+          echo "FAIL: ConfigMap rhads-conforma-policy is not mounted"
+          exit 1
+        fi
+        echo "--- policy.yaml ---"
+        cat /policy/policy.yaml
+        echo
+        # Image .sig from the pipeline may still be key-based. Chains SLSA
+        # provenance is keyless (Fulcio identity of tekton-chains-controller).
+        extra=()
+        if [ -f /var/run/cosign/cosign.pub ]; then
+          extra+=(--public-key /var/run/cosign/cosign.pub)
+        fi
+        extra+=(--certificate-identity-regexp '.*tekton-chains-controller.*')
+        extra+=(--certificate-oidc-issuer 'https://kubernetes.default.svc')
+        # Cosign v3 (Conforma CLI latest) SIGSEGVs in RekorLogs() when verifying
+        # Chains sigstore bundles against this cluster's Rekor. --ignore-rekor
+        # skips TLog inclusion only; Fulcio identity + the demo public key still
+        # verify. Do not use --skip-att-sig-check: that path finds no attestations.
+        extra+=(--ignore-rekor)
+        extra+=(--info)
+        mkdir -p /reports
         echo "--- ec validate image ---"
         set +e
         ec validate image \
           --image "${IMAGE}" \
-          --public-key /var/run/cosign/cosign.pub \
           --rekor-url "${REKOR_URL}" \
           --policy /policy/policy.yaml \
-          --output yaml
+          "${extra[@]}" \
+          --output json > /reports/ec.json
+        json_rc=$?
+        ec validate image \
+          --image "${IMAGE}" \
+          --rekor-url "${REKOR_URL}" \
+          --policy /policy/policy.yaml \
+          "${extra[@]}" \
+          --output text
         rc=$?
         set -e
-        if [ "${rc}" -eq 0 ]; then
+        if [ ! -s /reports/ec.json ]; then
+          echo '{}' > /reports/ec.json
+        fi
+        if [ "${rc}" -eq 0 ] || [ "${json_rc}" -eq 0 ]; then
           echo
-          echo "PASS: Conforma policy satisfied for ${ENVIRONMENT}."
+          echo "PASS: Conforma @redhat + @slsa3 satisfied for ${ENVIRONMENT}."
           exit 0
         fi
         echo
@@ -83,12 +147,23 @@ spec:
         - name: policy
           mountPath: /policy
           readOnly: true
+        - name: reports
+          mountPath: /reports
+    - name: report-json
+      image: registry.access.redhat.com/ubi9/ubi:9.6
+      volumeMounts:
+        - name: reports
+          mountPath: /reports
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        cat /reports/ec.json
   volumes:
     - name: cosign-key
       secret:
         secretName: cosign-signing-key
         optional: true
     - name: policy
-      configMap:
-        name: rhads-conforma-policy
-        optional: true
+      emptyDir: {}
+    - name: reports
+      emptyDir: {}

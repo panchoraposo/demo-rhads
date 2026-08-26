@@ -21,6 +21,7 @@
     body_format: json
     body:
       default_branch_protection: 0
+      auto_devops_enabled: false
     status_code: [200, 400]
     validate_certs: "{{ validate_ssl_certs }}"
 

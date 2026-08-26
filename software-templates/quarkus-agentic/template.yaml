@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: quarkus-agentic
   title: Agentic app — Quarkus MCP
-  description: Quarkus MCP server. Demo path: Developer Hub → Dev Spaces (RHDA + gitsign) → TPA SBOM → signed commit → OpenShift Builds + Nexus + Tekton Chains → GitLab tag/release with Conforma.
+  description: "Quarkus MCP server. Demo path: Developer Hub → Dev Spaces (RHDA + gitsign) → TPA SBOM → signed commit → OpenShift Builds + Nexus + Tekton Chains → GitLab tag/release with Conforma."
   tags:
     - recommended
     - quarkus
@@ -104,6 +104,8 @@ spec:
         repoVisibility: public
         defaultBranch: main
         sourcePath: ./${{ parameters.gitlab_group }}-${{ parameters.component_id }}
+        settings:
+          auto_devops_enabled: false
     - id: register
       name: Register in catalog
       action: catalog:register
@@ -143,6 +145,8 @@ spec:
         repoVisibility: public
         defaultBranch: main
         sourcePath: ./${{ parameters.owner }}-${{ parameters.component_id }}-gitops
+        settings:
+          auto_devops_enabled: false
     - id: create-argocd
       name: Create Argo CD app-of-apps
       action: argocd:create-resources

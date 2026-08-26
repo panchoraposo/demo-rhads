@@ -47,7 +47,7 @@
 
 - name: Record RHTAS route hosts
   ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} -n {{ rhtas_namespace }} get route -o jsonpath={range.items[*]}{.metadata.name}{"="}{.spec.host}{"\n"}{end}
+    cmd: oc --context {{ oc_context }} -n {{ rhtas_namespace }} get route -o jsonpath={{ '{range.items[*]}{.metadata.name}{"="}{.spec.host}{"\\n"}{end}' }}
   register: rhtas_routes
   failed_when: false
   changed_when: false

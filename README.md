@@ -69,7 +69,7 @@ Object storage: **ODF Multicloud Object Gateway** (NooBaa) with **ODF Multiclust
 2. Create → **Agentic app — Quarkus MCP** (Camel and Node.js are also available).
 3. The template publishes source plus a GitOps repo (app of apps: build, dev, staging, prod). The first pipeline uploads the SBOM to TPA.
 4. From the catalog, **OpenShift Dev Spaces**. Run RHDA on `pom.xml`. Open the SBOM in TPA. Change code.
-5. **gitsign-signed** commit (Fulcio/Rekor, same trust root as cosign) and push → starts the pipeline.
+5. Dev Spaces command palette: **Configure Sigstore git commit signing (gitsign + RHTAS TUF)**, signed `git commit`, **Verify Sigstore-signed HEAD**, then `git push` → pipeline.
 6. Pipeline: Nexus, OpenShift Builds, SBOM, cosign+Rekor, attest, ACS, TPA, Conforma, GitOps `dev`, Tekton Chains.
 7. In GitLab, **tag** `v1.0.0` → staging (Conforma STRICT + commit comment).
 8. **Release** on that tag → production (Conforma STRICT).
