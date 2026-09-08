@@ -5,7 +5,7 @@
 
 # oc_context is discovered from `oc config current-context` unless overridden
 # with -e oc_context=<name>.
-storage_class: gp3-csi
+storage_class: ocs-external-storagecluster-ceph-rbd
 validate_ssl_certs: false
 common_user_password: "backstage"
 

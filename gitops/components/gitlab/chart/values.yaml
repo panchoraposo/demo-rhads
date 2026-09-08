@@ -68,7 +68,7 @@ gitlab:
   gitaly:
     persistence:
       enabled: true
-      storageClass: "gp3-csi"
+      storageClass: "ocs-external-storagecluster-ceph-rbd"
       size: 50Gi
   unicorn:
     enabled: true
@@ -89,7 +89,7 @@ gitlab:
     master:
       persistence:
         enabled: true
-        storageClass: "gp3-csi"
+        storageClass: "ocs-external-storagecluster-ceph-rbd"
         size: 5Gi
   minio:
     enabled: false
@@ -102,7 +102,7 @@ postgresql:
   dbName: gitlab_production
   persistence:
     enabled: true
-    storageClass: "gp3-csi"
+    storageClass: "ocs-external-storagecluster-ceph-rbd"
     size: 10Gi
 
 

@@ -71,7 +71,9 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "quarkus-template.image" -}}
-{{- if eq .Values.image.registry "Quay" }}
+{{- if .Values.image.digestRef }}
+{{- .Values.image.digestRef -}}
+{{- else if eq .Values.image.registry "Quay" }}
 {{- printf "%s/%s/%s:%s" .Values.image.host .Values.image.organization .Values.image.name .Values.image.tag -}}
 {{- else }}
 {{- printf "%s/%s/%s:latest" .Values.image.host .Values.image.namespace .Values.image.name -}}

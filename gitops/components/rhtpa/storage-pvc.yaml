@@ -11,4 +11,4 @@ spec:
   resources:
     requests:
       storage: 20Gi
-  storageClassName: gp3-csi
+  storageClassName: ocs-external-storagecluster-ceph-rbd

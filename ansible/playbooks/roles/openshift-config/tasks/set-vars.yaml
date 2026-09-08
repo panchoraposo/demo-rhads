@@ -39,7 +39,7 @@
     keycloak_userinfo_endpoint: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}/protocol/openid-connect/userinfo"
     keycloak_jwks_uri: "https://sso.apps.{{ dns_config.resources[0].spec.baseDomain }}/realms/{{ keycloak_realm }}/protocol/openid-connect/certs"
     gitlab_base_url: "https://gitlab-gitlab.apps.{{ dns_config.resources[0].spec.baseDomain }}"
-    quay_host: "quay-quay.apps.{{ dns_config.resources[0].spec.baseDomain }}"
+    quay_host: "quay-quay-quay.apps.{{ dns_config.resources[0].spec.baseDomain }}"
     rhdh_host: "backstage-developer-hub-backstage.apps.{{ dns_config.resources[0].spec.baseDomain }}"
     tpa_app_domain: ".apps.{{ dns_config.resources[0].spec.baseDomain }}"
     repo_root: "{{ playbook_dir }}/../.."

@@ -6,7 +6,7 @@ metadata:
     {{- include "rhads-build.labels" . | nindent 4 }}
     app.kubernetes.io/component: build-cache
   annotations:
-    # gp3-csi uses WaitForFirstConsumer; the claim stays Pending until the first
+    # The RBD class uses WaitForFirstConsumer; the claim stays Pending until the first
     # PipelineRun mounts it. Skip Argo health so sync is not blocked on that bind.
     argocd.argoproj.io/sync-options: DisableResourceHealthCheck=true
 spec:
@@ -15,4 +15,4 @@ spec:
   resources:
     requests:
       storage: {{ .Values.build.cacheSize | default "8Gi" }}
-  storageClassName: gp3-csi
+  storageClassName: ocs-external-storagecluster-ceph-rbd
