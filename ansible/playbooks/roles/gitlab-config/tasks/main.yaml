@@ -2,6 +2,9 @@
 - name: Create PAT for root
   include_tasks: create-pat.yaml
 
+- name: Allow GitLab webhooks to reach cluster-local services
+  include_tasks: enable-local-webhooks.yaml
+
 - name: Create GitLab admin user
   include_tasks: user-admin.yaml
 

@@ -13,7 +13,7 @@ data:
       TOKEN="FAKESECRET_u2v3w4x5y6z7a8b9c0d1"
     fi
     : "${TOKEN:?gitlab-token secret is missing or empty}"
-    EL="https://{{ include "rhads-build.name" . }}-el-{{ .Release.Namespace }}.{{ .Values.cluster.subdomain }}"
+    EL="http://el-{{ include "rhads-build.name" . }}-el.{{ .Release.Namespace }}.svc.cluster.local:8080"
     PROJECT_PATH="$(echo "${REPO}" | sed 's#https://'"${HOST}"'/##' | sed 's#\.git$##' | sed 's#/#%2F#g')"
     API="https://${HOST}/api/v4/projects/${PROJECT_PATH}"
     AUTH=(--header "PRIVATE-TOKEN: ${TOKEN}")
