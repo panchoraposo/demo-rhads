@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.camel.yaml": "yaml"
+  },
+  "redhat.telemetry.enabled": false
+}

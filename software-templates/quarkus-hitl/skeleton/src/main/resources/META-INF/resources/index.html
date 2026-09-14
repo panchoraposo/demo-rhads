@@ -4,7 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Miles of Smiles — Human-in-the-Loop</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <script>
+    (function () {
+      // Dev Spaces Simple Browser: /admin/<workspace>/8080/. Cluster Route and
+      // PORTS → fleet-ui serve at /, so APP_BASE stays empty (same APIs).
+      var m = location.pathname.match(/^(\/admin\/[^/]+\/\d{4})(?:\/|$)/);
+      window.APP_BASE = m ? m[1] : '';
+      window.apiUrl = function (path) {
+        var p = path.charAt(0) === '/' ? path : '/' + path;
+        return window.APP_BASE + p;
+      };
+      var base = document.createElement('base');
+      base.href = window.APP_BASE ? window.APP_BASE + '/' : '/';
+      document.head.appendChild(base);
+    })();
+    </script>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <header class="demo-header">
@@ -15,10 +30,10 @@
             <span class="product" id="llm-label"></span>
         </div>
         <nav>
-            <a href="/">App</a>
-            <a href="/q/dev-ui" target="_blank" rel="noopener">Dev UI</a>
-            <a href="/q/swagger-ui" target="_blank" rel="noopener">Swagger</a>
-            <a href="/q/health" target="_blank" rel="noopener">Health</a>
+            <a href="./">App</a>
+            <a href="q/dev-ui" target="_blank" rel="noopener">Dev UI</a>
+            <a href="q/swagger-ui" target="_blank" rel="noopener">Swagger</a>
+            <a href="q/health" target="_blank" rel="noopener">Health</a>
         </nav>
     </header>
     <h1>Car Management System</h1>
@@ -84,11 +99,14 @@
         </div>
     </div>
 
-    <script src="/js/app.js"></script>
+    <script src="js/app.js"></script>
     <script>
-        fetch('/llm').then(r => r.json()).then(d => {
+        fetch(apiUrl('/llm')).then(r => r.json()).then(d => {
             document.getElementById('llm-label').textContent = '· ' + d.label;
         }).catch(() => {});
     </script>
+    <footer class="demo-footer">
+        Logs: ▶ start, 🧠 agents, 🚗 / 🔧 / 📋 tools, ✅ outcome. POST /car-management/return/{id} returns { car, workflow }.
+    </footer>
 </body>
 </html>

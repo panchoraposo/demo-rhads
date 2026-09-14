@@ -95,7 +95,7 @@ Generated secrets (Keycloak master, Argo CD, ACS): [docs/credentials.md](docs/cr
 ## Demo flow
 
 1. Sign in to Developer Hub as `dev1`.
-2. Create → **Agentic app — Quarkus MCP** (Camel, Node.js, and **Quarkus HITL / Miles of Smiles** are also available). Component **name max 18 characters** (`quarkus-agent` is the default). For the HITL + MaaS inner loop, pick **Agentic app — Quarkus HITL** (`miles-smiles`) and paste a MaaS API key.
+2. Create → **Agentic app — Quarkus MCP** (Camel, Node.js, **Quarkus HITL**, and **Camel supervisor / Miles of Smiles** are also available). Component **name max 18 characters** (`quarkus-agent` is the default). For HITL + MaaS, pick **Agentic app — Quarkus HITL** (`miles-smiles`). For Kaoto + Camel JBang + MaaS (supervisor, no HITL), pick **Agentic app — Camel supervisor** (`miles-camel`) and paste a MaaS API key.
 3. The template publishes source plus a GitOps repo (app of apps: build, dev, staging, prod). A Job registers the GitLab webhook, creates the Quay repo, and **starts the first PipelineRun** (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**.
 4. From the catalog, **OpenShift Dev Spaces**. Run RHDA on `pom.xml`. Open the SBOM in TPA. Change code.
 5. Dev Spaces command palette: **Configure Sigstore git commit signing (gitsign + RHTAS TUF)**, signed `git commit` (copy the OIDC URL; Dev Spaces has no browser helper), **Verify Sigstore-signed HEAD**, then `git push` → pipeline.

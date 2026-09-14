@@ -97,16 +97,19 @@ Developer Hub waits for SSO at boot. If Keycloak comes up after Hub has already 
 
 ## Software templates
 
-Four Developer Hub templates, all app-of-apps:
+Five Developer Hub templates, all app-of-apps:
 
 - `quarkus-agentic` — Quarkus MCP server (Red Hat build of Quarkus **3.20.6**, n-1 CVE demo)
 - `quarkus-hitl` — Miles of Smiles human-in-the-loop agents (Quarkus **3.33** + LangChain4j + MaaS, JDK 21). Default name `miles-smiles`.
-- `camel-agentic` — Camel Quarkus REST agent
+- `camel-supervisor` — Miles of Smiles **supervisor** agents (step 04 from [demo-camel-agentic](https://github.com/panchoraposo/demo-camel-agentic): Kaoto YAML + Camel JBang 4.18 + MaaS in Dev Spaces; cluster image is Camel Quarkus **3.33** / Camel **4.18**, JDK 21). Default name `miles-camel`.
+- `camel-agentic` — Camel Quarkus REST agent (n-1 CVE demo)
 - `nodejs-agentic` — Express agent
 
 Component **name maxLength is 18** (OpenShift/Kubernetes name limits for the generated namespaces and resources). Default for the CVE path: `quarkus-agent`.
 
-`quarkus-hitl` is current RHBQ (not n-1) so the HITL APIs work. Dev Spaces exposes **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`) on port 8080; the cluster Route uses H2 in-memory (no Postgres) and a 300s timeout for the approval wait. MaaS `MAAS_API_KEY` is stored in the GitOps Helm secret (same demo pattern as the Quay password).
+`quarkus-hitl` is current RHBQ (not n-1) so the HITL APIs work. Dev Spaces exposes **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`) on port 8080. `POST /car-management/return/{id}` returns **202** immediately and the workflow runs on a worker (Che would abort a 5-minute HITL POST). The UI polls `/api/approvals/pending`. The cluster Route still has a 300s timeout for other clients. MaaS `MAAS_API_KEY` is stored in the GitOps Helm secret (same demo pattern as the Quay password).
+
+`camel-supervisor` is also current RHBQ/Camel (not n-1) so `camel-quarkus-openai` and Kaoto `*.camel.yaml` routes work. Inner loop is **Camel JBang 4.18** (command palette → **Camel JBang + MaaS**), not `quarkus:dev`. Open `integrations/03-workflow.camel.yaml` with **Kaoto**. Public endpoint **fleet-ui** (`/`) and **camel-dev-console** (`/q/dev`). Collision on Civic `#7` goes to **PENDING_DISPOSITION** (step 04 has no Keep/Dispose HITL). The cluster image is the same YAML on Camel Quarkus so Tekton Maven + `Dockerfile.jvm` stay identical to the other Java templates. Staging/prod stay at 0 replicas until a GitLab tag/release. Dev Recreate reseeds the in-memory fleet.
 
 The scaffolder creates:
 
@@ -142,7 +145,7 @@ GitLab Auto DevOps is disabled. A single instance runner builds TechDocs from th
 Each build pipeline:
 
 1. `git-clone` + `gitsign verify` (RHTAS TUF; unsigned scaffold commits warn only)
-2. Maven / npm against **Nexus** (`maven-public` / `npm-group`), workspace on the build-cache PVC
+2. Maven / npm against **Nexus** (`maven-public` / `npm-group`). Job `rhads-maven-warm` runs `mvn package` for the Quarkus and Camel template POMs, then publishes `raw-hosted/rhads/m2-seed.tar.gz`. Task `rhads-build-source` extracts that tarball onto the app `{app}-build-cache` PVC when the local repo is empty, then `mvn -o package`.
 3. **OpenShift Builds** (BuildConfig Docker strategy, binary `--from-dir`) → Quay
 4. Syft CycloneDX + SPDX
 5. `cosign sign` with the **demo key** and **upload to Rekor**

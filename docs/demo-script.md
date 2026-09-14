@@ -11,7 +11,7 @@ This cluster was installed from GitHub (`./install.sh`). GitLab holds the live G
 ## 1. Portal — create the app (4 min)
 
 1. Developer Hub → Keycloak OIDC login as **`dev1`**.
-2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay already filled in). Name **at most 18 characters** — leave the default `quarkus-agent`. For Miles of Smiles HITL + MaaS instead, Create → **Agentic app — Quarkus HITL** (`miles-smiles`) and paste the MaaS API key.
+2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay already filled in). Name **at most 18 characters** — leave the default `quarkus-agent`. For Miles of Smiles HITL + MaaS instead, Create → **Agentic app — Quarkus HITL** (`miles-smiles`) and paste the MaaS API key. For Camel + Kaoto supervisor (step 04, no HITL), Create → **Agentic app — Camel supervisor** (`miles-camel`) and paste the same MaaS key.
 3. Wait for the scaffolder to publish two repos and the Argo CD app-of-apps (`{app}-build`, `{app}-dev`, `{app}-staging`, `{app}-prod`).
 4. The GitOps webhook Job registers the GitLab hook, creates `rhads/{app}` in Quay, and **immediately triggers** the first build (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**, so it is there when Dev Spaces opens. Task `gitsign-verify` prints a WARN and still PASSes.
 
@@ -19,7 +19,9 @@ This cluster was installed from GitHub (`./install.sh`). GitLab holds the live G
 
 Start the workspace **before the audience is in the room**. The first start pulls the Universal Developer Image and che-code (several GB) and can take many minutes on a single-node sandbox. After that, the workspace stays running (idling is disabled) so opening it from the catalog is seconds, not minutes.
 
-**HITL + MaaS (Miles of Smiles):** command palette → **Write .env for Red Hat MaaS** (if the API key was not set at scaffold) → **Quarkus dev (fleet UI + Dev UI on 8080)**. Open the workspace endpoints **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`). Return Civic `#7` (or a Mercedes) with a collision prompt; **Approval Needed** appears when estimated value is above $15,000. Ford Focus `#5` usually skips HITL.
+**HITL + MaaS (Miles of Smiles):** command palette → **Write .env for Red Hat MaaS** (if the API key was not set at scaffold) → **Quarkus dev (fleet UI + Dev UI on 8080)**. First start is slow (JDK 21 + Maven). Open **PORTS → fleet-ui** (public hostname). Return Civic `#7` with a collision prompt; **Approval Needed** appears in a few seconds (Java HITL, not the LLM). Cluster Fleet UI: catalog link **Fleet UI (dev)**. Each new image in **dev** Recreates the pod: in-memory H2 reloads `import.sql` (Civic `#7` is `RENTED` again; pending HITL is gone). Staging/prod stay scaled to 0 until GitLab tag/release.
+
+**Camel supervisor + Kaoto + MaaS:** first workspace start installs JBang + Camel CLI (`postStart`). Command palette → **Write .env for Red Hat MaaS** if needed → **Camel JBang + MaaS (fleet UI on 8080)**. Open `integrations/03-workflow.camel.yaml` with **Kaoto** (right-click or command palette). Open **PORTS → fleet-ui**. Return Civic `#7` with the collision/airbags prompt → **Pending Disposition** (no approval modal). YAML edits do not hot-reload; restart Camel JBang. Cluster Fleet UI is the same catalog link after Tekton publishes the Camel Quarkus image.
 
 1. On the catalog component, **OpenShift Dev Spaces (VS Code)** — reopen the workspace that is already Running.
 2. Open the manifest → command palette → **Red Hat Dependency Analytics**. Templates use **previous** Red Hat runtimes so TPA/RHDA have findings: Quarkus/Camel **3.20.6.redhat-00004** (n-1 of 3.27/3.33), OpenJDK **ubi8/openjdk-17:1.16**, Node.js **ubi9/nodejs-18:1-108**, plus **commons-text 1.9** / **snakeyaml 1.33** / **express 4.18.2** / **lodash 4.17.20**. RHDA talks to the **in-cluster TPA**, not Red Hat SaaS.
@@ -54,7 +56,7 @@ In RHDH (CI / Tekton tab) or OpenShift → Pipelines. Each task prints an `[SSSC
 | --- | --- |
 | git-clone | source from GitLab |
 | gitsign-verify | Sigstore commit signature (Fulcio + Rekor + TUF). WARN on the unsigned scaffold commit; PASS after Dev Spaces. |
-| build-source | Maven/npm **only** against Nexus (preloaded / proxied libs), Maven cache PVC |
+| build-source | Maven/npm **only** against Nexus. First run extracts a preloaded `m2-seed` tarball onto the app PVC, then `mvn -o`. |
 | openshift-build | image with **OpenShift Builds** (Docker BuildConfig) → Quay |
 | generate-sbom | Syft CycloneDX + SPDX inventory |
 | sign-image | cosign **demo key** + Rekor |

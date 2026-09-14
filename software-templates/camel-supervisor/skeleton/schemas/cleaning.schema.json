@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CleaningFeedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cleaningRequired", "cleaningServices", "cleaningNotes", "condition"],
+  "properties": {
+    "cleaningRequired": { "type": "boolean" },
+    "cleaningServices": { "type": "array", "items": { "type": "string" } },
+    "cleaningNotes": { "type": "string" },
+    "condition": { "type": "string" }
+  }
+}

@@ -1,0 +1,6 @@
+.git
+**/*.md
+.vscode
+.env
+.camel-jbang
+work-orders/*.json

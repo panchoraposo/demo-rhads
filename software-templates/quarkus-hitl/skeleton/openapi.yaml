@@ -13,7 +13,7 @@ paths:
           description: OK
   /car-management/return/{id}:
     post:
-      summary: Process a car return (may wait for human approval)
+      summary: Start a car return (202). HITL is polled via /api/approvals/pending.
       parameters:
         - name: id
           in: path
@@ -21,8 +21,8 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: OK
+        "202":
+          description: Workflow started; body is { car, workflow } (action=PROCESSING). Poll /cars and /api/approvals/pending.
   /approvals:
     get:
       summary: Pending HITL proposals

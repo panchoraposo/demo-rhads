@@ -1,0 +1,108 @@
+#
+# Kaoto canvas for this step.
+# Quarkus: @SupervisorAgent (Pricing + Disposition + Maintenance + Cleaning)
+# Camel:   multicast of three analyzers, then recipientList (disposition > maintenance > cleaning)
+#
+- route:
+    id: workflow
+    description: Sequence wrapping parallel feedback + fleet supervisor
+    from:
+      uri: direct:workflow
+      steps:
+        - to: "bean:workflowSupport?method=initIntake"
+        - to: "direct:feedback-parallel"
+        - to: "bean:workflowSupport?method=applyIntakeFlags"
+        - log:
+            loggingLevel: INFO
+            message: "🧠 supervisor assignment=${exchangeProperty.assignment} agent=${exchangeProperty.assignmentAgent}"
+        - recipientList:
+            simple: "${exchangeProperty.assignmentRoute}"
+        - to: "bean:fleetStore?method=applyIntake(${exchangeProperty.carNumber},${exchangeProperty.intake})"
+
+- route:
+    id: feedback-parallel
+    description: "@ParallelAgent analog — cleaning, maintenance, and disposition analyzers"
+    from:
+      uri: direct:feedback-parallel
+      steps:
+        - multicast:
+            parallelProcessing: true
+            steps:
+              - to: "direct:cleaning-feedback-agent"
+              - to: "direct:maintenance-feedback-agent"
+              - to: "direct:disposition-feedback-agent"
+
+- route:
+    id: supervisor-disposition
+    description: "@SupervisorAgent analog — PricingAgent then DispositionAgent"
+    from:
+      uri: direct:supervisor-disposition
+      steps:
+        - log:
+            loggingLevel: INFO
+            message: "Supervisor → DispositionAgent + PricingAgent"
+        - to: "direct:pricing-agent"
+        - to: "direct:tool-request-disposition"
+
+- route:
+    id: pricing-agent
+    description: PricingAgent — estimates market value (Quarkus PricingAgent analog)
+    from:
+      uri: direct:pricing-agent
+      steps:
+        - setBody:
+            simple: |-
+              Estimate the current market value of this vehicle:
+              - Make: ${exchangeProperty.car[make]}
+              - Model: ${exchangeProperty.car[model]}
+              - Year: ${exchangeProperty.car[year]}
+              - Condition: ${exchangeProperty.intake[condition]}
+        - to:
+            uri: openai:chat-completion
+            parameters:
+              systemMessage: |-
+                You are a vehicle pricing specialist with expertise in market valuations.
+                Use the current calendar year minus vehicle year as age.
+
+                Brand Base Values (new current-year models):
+                - Luxury brands (Mercedes-Benz, BMW, Audi): $50,000-$70,000
+                - Premium trucks (Ford F-150): $45,000-$60,000
+                - Mainstream brands (Toyota, Honda, Chevrolet): $28,000-$42,000
+                - Economy brands (Nissan): $22,000-$35,000
+
+                Depreciation:
+                - Age 1 year: -12% from base
+                - Age 2 years: -15% additional (27% total)
+                - Age 3 years: -12% additional (39% total)
+                - Age 4 years: -10% additional (49% total)
+                - Age 5+ years: -8% per additional year
+
+                Condition adjustments after depreciation:
+                - Excellent/Like new: +5%
+                - Good/Recently serviced: no adjustment
+                - Fair/Minor issues: -10%
+                - Poor/Needs work or severe damage: -20% or more
+
+                Reply with exactly:
+                Estimated Value: $XX,XXX
+                Justification: 2-3 sentences including vehicle age.
+                /no_think
+              temperature: 0
+              maxTokens: 256
+        - log:
+            loggingLevel: INFO
+            message: "🧠 PricingAgent raw=${body}"
+        - to: "bean:workflowSupport?method=capturePricing"
+        - log:
+            loggingLevel: INFO
+            message: "🧠 PricingAgent value=${exchangeProperty.carValue}"
+
+- route:
+    id: supervisor-available
+    description: No action tools
+    from:
+      uri: direct:supervisor-available
+      steps:
+        - log:
+            loggingLevel: INFO
+            message: "Supervisor: car remains available"

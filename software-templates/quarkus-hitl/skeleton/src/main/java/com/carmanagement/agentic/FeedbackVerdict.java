@@ -35,6 +35,32 @@ public final class FeedbackVerdict {
         return !text.toUpperCase().contains(notRequiredToken.toUpperCase());
     }
 
+    /**
+     * Demo-safe write-off detector. Do not wait for the LLM to agree before HITL.
+     */
+    public static boolean looksLikeWriteOff(String feedback) {
+        String text = withoutThinking(feedback).toUpperCase();
+        if (text.isEmpty()) {
+            return false;
+        }
+        return text.contains("COLLISION")
+                || text.contains("AIRBAG")
+                || text.contains("TOTAL")
+                || text.contains("DESTROY")
+                || text.contains("WRECK")
+                || text.contains("WRITE-OFF")
+                || text.contains("WRITE OFF")
+                || text.contains("NOT DRIVABLE")
+                || text.contains("UNDRIVABLE");
+    }
+
+    public static boolean dispositionRequired(FeedbackAnalysisResults analysis, String feedback) {
+        if (looksLikeWriteOff(feedback)) {
+            return true;
+        }
+        return analysis != null && required(analysis.dispositionAnalysis(), "DISPOSITION_NOT_REQUIRED");
+    }
+
     public static CarAssignment assignment(FeedbackAnalysisResults analysis, String supervisorDecision) {
         String decision = withoutThinking(supervisorDecision).toUpperCase();
         if (decision.contains("KEEP_CAR") && !decision.contains("DISPOSE_CAR")) {

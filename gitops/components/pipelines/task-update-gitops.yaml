@@ -91,6 +91,7 @@ spec:
           tag: "${IMAGE_TAG}"
           digestRef: "${IMAGE}"
         environment: "${OVERLAY}"
+        replicaCount: 1
         EOF
         cat "${FILE}"
         cd "${DEST}"

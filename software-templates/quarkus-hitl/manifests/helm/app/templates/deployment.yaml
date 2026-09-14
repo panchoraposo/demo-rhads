@@ -5,6 +5,8 @@ metadata:
   labels:
     {{- include "quarkus-template.labels" . | nindent 4 }}
 spec:
+  strategy:
+    type: Recreate
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
@@ -13,10 +15,11 @@ spec:
       {{- include "quarkus-template.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        rhads.demo/image-tag: {{ .Values.image.tag | default "unknown" | quote }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "quarkus-template.selectorLabels" . | nindent 8 }}
         {{- include "backstage.labels" . | nindent 8 }}
@@ -30,6 +33,13 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: {{ include "quarkus-template.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: QUARKUS_HTTP_CORS_ENABLED
+              value: "true"
+            - name: QUARKUS_HTTP_CORS_ORIGINS
+              value: "/.*/"
+            - name: QUARKUS_HTTP_CORS_METHODS
+              value: "GET,HEAD,POST,PUT,DELETE,PATCH,OPTIONS"
           envFrom:
             - secretRef:
                 name: {{ include "quarkus-template.name" . }}-maas
@@ -41,6 +51,12 @@ spec:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /q/health/live
+              port: http
+            failureThreshold: 24
+            periodSeconds: 5
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

@@ -64,10 +64,10 @@ readinessProbe:
 resources:
   requests:
     cpu: 200m
-    memory: 512Mi
+    memory: 1Gi
   limits:
     cpu: "1"
-    memory: 1Gi
+    memory: 2Gi
 
 maas:
   baseUrl: https://maas-rhdp.apps.maas.redhatworkshops.io/v1/

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miles of Smiles — Supervisor Pattern</title>
+    <script>
+    (function () {
+      // Dev Spaces Simple Browser: /admin/<workspace>/8080/. Cluster Route and
+      // PORTS → fleet-ui serve at /, so APP_BASE stays empty (same APIs).
+      var m = location.pathname.match(/^(\/admin\/[^/]+\/\d{4})(?:\/|$)/);
+      window.APP_BASE = m ? m[1] : '';
+      window.apiUrl = function (path) {
+        var p = path.charAt(0) === '/' ? path : '/' + path;
+        return window.APP_BASE + p;
+      };
+      var base = document.createElement('base');
+      base.href = window.APP_BASE ? window.APP_BASE + '/' : '/';
+      document.head.appendChild(base);
+    })();
+    </script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-show-condition="true">
+    <header class="demo-header">
+        <div>
+            <strong>Miles of Smiles</strong>
+            <span class="product">Step 04 · Supervisor Pattern</span>
+            <span class="product">· Red Hat build of Apache Camel 4.18</span>
+            <span class="product" id="llm-label"></span>
+        </div>
+        <nav>
+            <a href="./">App</a>
+            <a href="q/dev" target="_blank" rel="noopener">Dev Console</a>
+            <a href="q/health" target="_blank" rel="noopener">Health</a>
+        </nav>
+    </header>
+    <h1>Car Management System</h1>
+
+    <div id="notification" style="display: none; background-color: #4CAF50; color: white; padding: 10px; margin-bottom: 10px; border-radius: 5px;"></div>
+    <div id="error-message" style="display: none; background-color: #f44336; color: white; padding: 10px; margin-bottom: 10px; border-radius: 5px;"></div>
+
+    <button id="refresh-button" style="margin-bottom: 20px; padding: 10px; background-color: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        Refresh Data
+    </button>
+
+    <div id="fleet-status-section" class="section">
+        <h2>Fleet Status</h2>
+
+        <div class="filter-container">
+            <input type="text" id="fleet-filter" placeholder="Filter cars..." class="filter-input">
+            <select id="filter-field" class="filter-select">
+                <option value="all">All Fields</option>
+                <option value="id">Car Number</option>
+                <option value="make">Make</option>
+                <option value="model">Model</option>
+                <option value="year">Year</option>
+                <option value="condition">Condition</option>
+                <option value="status">Status</option>
+            </select>
+            <button id="clear-filter" class="filter-button">Clear</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="id">Car Number <span class="sort-icon">↕</span></th>
+                    <th class="sortable" data-sort="make">Make <span class="sort-icon">↕</span></th>
+                    <th class="sortable" data-sort="model">Model <span class="sort-icon">↕</span></th>
+                    <th class="sortable" data-sort="year">Year <span class="sort-icon">↕</span></th>
+                    <th>Condition</th>
+                    <th class="sortable" data-sort="status">Status <span class="sort-icon">↕</span></th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="fleet-status-table-body">
+                <tr>
+                    <td colspan="7">Loading data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="js/app.js"></script>
+    <footer class="demo-footer">
+        Logs: ▶ start, 🧠 agents, 🚗 / 🔧 / 📋 tools, ✅ outcome. POST /car-management/return/{id} returns { car, workflow }. Collision → Pending Disposition (no HITL).
+    </footer>
+</body>
+</html>

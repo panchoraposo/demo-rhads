@@ -12,7 +12,7 @@ public interface FleetSupervisorAgent {
 
     @SupervisorAgent(
             outputKey = "supervisorDecision",
-            maxAgentsInvocations = 6,
+            maxAgentsInvocations = 8,
             subAgents = {
                     PricingAgent.class,
                     DispositionProposalAgent.class,
@@ -38,6 +38,7 @@ public interface FleetSupervisorAgent {
     ) {
         boolean dispositionRequired = com.carmanagement.agentic.FeedbackVerdict.required(
                 feedbackAnalysisResults.dispositionAnalysis(), "DISPOSITION_NOT_REQUIRED");
+        String originalCondition = carInfo != null && carInfo.condition != null ? carInfo.condition : "";
         String currentCondition = com.carmanagement.agentic.FeedbackVerdict.applyLiveCondition(
                 carInfo, feedback, feedbackAnalysisResults);
 
@@ -56,20 +57,18 @@ public interface FleetSupervisorAgent {
         String dispositionMessage = """
             DISPOSITION_REQUIRED
             
-            Follow these steps:
+            Follow these steps IN ORDER. Do not skip HumanApprovalAgent.
             
-            1. Invoke PricingAgent (keep $ format in carValue). Pass carCondition as Current Condition below, not the old fleet record.
-            2. IF value > $15,000 (HIGH-VALUE):
-               - MUST invoke DispositionProposalAgent then HumanApprovalAgent (do NOT invoke DispositionAgent)
+            1. Invoke PricingAgent. Pass carCondition as the ORIGINAL FLEET CONDITION below
+               (pre-incident book value). Do NOT pass the wrecked current condition.
+            2. Invoke DispositionProposalAgent (use Current Condition / Feedback for damage).
+            3. MUST invoke HumanApprovalAgent and wait. Do NOT invoke DispositionAgent.
                - If HumanApprovalAgent reason contains KEEP_CAR → end with KEEP_CAR
                - If HumanApprovalAgent reason contains DISPOSE_CAR → end with DISPOSE_CAR
                - If HumanApprovalAgent says REJECTED without KEEP_CAR/DISPOSE_CAR → end with KEEP_CAR
-            3. IF value ≤ $15,000 (LOW-VALUE):
-               - Invoke DispositionAgent directly (skip HumanApprovalAgent)
-               - KEEP → KEEP_CAR; SCRAP/SELL/DONATE → DISPOSE_CAR
             4. IF KEEP_CAR: invoke MaintenanceAgent/CleaningAgent as needed
             
-            CRITICAL: End with KEEP_CAR or DISPOSE_CAR
+            CRITICAL: Every write-off needs a human. End with KEEP_CAR or DISPOSE_CAR
             """;
 
         return String.format("""
@@ -83,6 +82,7 @@ public interface FleetSupervisorAgent {
             Your job is to invoke the appropriate ACTION agents for this car
             
             Car: %d %s %s (#%d)
+            Original fleet condition (PricingAgent): %s
             Current Condition: %s
             Feedback: %s
             
@@ -96,7 +96,7 @@ public interface FleetSupervisorAgent {
             
             /no_think
             """,
-                carInfo.year, carInfo.make, carInfo.model, carNumber, currentCondition, feedback,
+                carInfo.year, carInfo.make, carInfo.model, carNumber, originalCondition, currentCondition, feedback,
                 feedbackAnalysisResults.cleaningAnalysis(),
                 feedbackAnalysisResults.maintenanceAnalysis(),
                 feedbackAnalysisResults.dispositionAnalysis(),

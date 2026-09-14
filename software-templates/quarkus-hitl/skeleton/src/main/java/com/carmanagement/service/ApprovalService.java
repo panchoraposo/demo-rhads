@@ -2,6 +2,8 @@ package com.carmanagement.service;
 
 import com.carmanagement.model.ApprovalProposal;
 import com.carmanagement.model.ApprovalProposal.ApprovalStatus;
+import com.carmanagement.model.CarInfo;
+import com.carmanagement.model.CarStatus;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -54,7 +56,7 @@ public class ApprovalService {
             try {
                 createProposalInNewTransaction(carNumber, carMake, carModel, carYear, carValue,
                         proposedDisposition, dispositionReason, carCondition, rentalFeedback);
-                Log.info("Proposal creation transaction committed — visible to the UI");
+                Log.debug("Proposal creation transaction committed — visible to the UI");
             } catch (Exception e) {
                 Log.errorf(e, "Failed to create proposal for car %d", carNumber);
                 future.completeExceptionally(e);
@@ -103,7 +105,13 @@ public class ApprovalService {
         proposal.persist();
         entityManager.flush();
 
-        Log.infof("Created approval proposal ID=%d for car %d — %s %s %s (value: %s, proposed: %s)",
+        CarInfo car = CarInfo.findById(carNumber);
+        if (car != null) {
+            car.status = CarStatus.PENDING_DISPOSITION;
+            entityManager.merge(car);
+        }
+
+        Log.debugf("Created approval proposal ID=%d for car %d — %s %s %s (value: %s, proposed: %s)",
                 proposal.id, carNumber, carYear, carMake, carModel, carValue, proposedDisposition);
     }
 
@@ -124,7 +132,7 @@ public class ApprovalService {
         proposal.decidedAt = LocalDateTime.now();
         proposal.persist();
 
-        Log.infof("Human decision for car %d: %s — %s", proposal.carNumber, proposal.decision, reason);
+        Log.debugf("Human decision for car %d: %s — %s", proposal.carNumber, proposal.decision, reason);
 
         CompletableFuture<ApprovalProposal> future = pendingApprovals.remove(proposal.carNumber);
         if (future != null) {

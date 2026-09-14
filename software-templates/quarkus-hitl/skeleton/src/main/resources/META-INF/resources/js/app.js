@@ -1,5 +1,11 @@
 // Car Management UI JavaScript
 
+function apiUrl(path) {
+    const base = window.APP_BASE || '';
+    const p = path.charAt(0) === '/' ? path : '/' + path;
+    return base + p;
+}
+
 // Global variables for sorting and filtering
 let currentSortColumn = 'id';
 let currentSortDirection = 'asc';
@@ -7,6 +13,7 @@ let carsData = []; // Store the cars data globally for sorting
 let currentFilterText = '';
 let currentFilterField = 'all';
 let lastUpdatedCarId = null; // Track the last updated car for highlighting
+const processingCarIds = new Set();
 
 // Wait for the DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -24,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to load all cars from the API
 function loadAllCars() {
-    fetch('/cars')
+    fetch(apiUrl('/cars'))
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -44,6 +51,10 @@ function loadAllCars() {
         .catch(error => {
             console.error('Error fetching cars:', error);
             displayError('Failed to load car data. Please try again later.');
+            const tableBody = document.getElementById('fleet-status-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = '<tr><td colspan="7">Failed to load car data (check the preview URL / API prefix).</td></tr>';
+            }
         });
 }
 
@@ -168,6 +179,7 @@ function populateFleetStatusTable(cars) {
     }
 
     filteredCars.forEach(car => {
+        markReturnSettled(car.id, car.status);
         const row = document.createElement('tr');
 
         // Highlight the row if it was just updated
@@ -184,7 +196,9 @@ function populateFleetStatusTable(cars) {
 
         // Build action cell based on status
         let actionCell = '';
-        if (car.status === 'RENTED' || car.status === 'AT_CLEANING' || car.status === 'AT_MAINTENANCE') {
+        if (processingCarIds.has(car.id) && (car.status === 'RENTED' || car.status === 'AT_CLEANING' || car.status === 'AT_MAINTENANCE')) {
+            actionCell = `<td><span class="status-pill status-pill-disposition">Processing…</span></td>`;
+        } else if (car.status === 'RENTED' || car.status === 'AT_CLEANING' || car.status === 'AT_MAINTENANCE') {
             actionCell = `
                 <td>
                     <form onsubmit="processFeedback(event, ${car.id}, '${car.status}')">
@@ -210,6 +224,15 @@ function populateFleetStatusTable(cars) {
     });
 }
 
+function markReturnSettled(carId, status) {
+    if (!status) {
+        return;
+    }
+    if (status !== 'RENTED' && status !== 'AT_CLEANING' && status !== 'AT_MAINTENANCE') {
+        processingCarIds.delete(carId);
+    }
+}
+
 // Function to process feedback and return a car
 function processFeedback(event, carId, status) {
     event.preventDefault();
@@ -227,22 +250,31 @@ function processFeedback(event, carId, status) {
         'AT_MAINTENANCE': 'maintenance'
     };
 
-    fetch(`/car-management/return/${carId}?feedback=${encodeURIComponent(feedback)}`, { method: 'POST' })
+    processingCarIds.add(carId);
+    fetch(apiUrl(`/car-management/return/${carId}?feedback=${encodeURIComponent(feedback)}`), {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
+    })
     .then(response => {
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (response.status !== 202 && !response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
         return response.text();
     })
-    .then(data => {
+    .then(() => {
         lastUpdatedCarId = carId;
-        showNotification(`Car successfully returned from ${statusLabels[status]}`);
+        showNotification('Agents are processing this return. Approval Needed appears for a write-off.');
         loadAllCars();
+        loadPendingApprovals();
     })
     .catch(error => {
         console.error(`Error returning car from ${statusLabels[status]}:`, error);
+        processingCarIds.delete(carId);
         displayError(`Failed to process ${statusLabels[status]} return. Please try again.`);
         button.disabled = false;
         button.classList.remove('loading');
         button.textContent = originalText;
+        loadAllCars();
     });
 }
 
@@ -389,7 +421,7 @@ let isModalOpen = false;
 // Load and display pending approvals in modal
 async function loadPendingApprovals() {
     try {
-        const response = await fetch('/api/approvals/pending');
+        const response = await fetch(apiUrl('/api/approvals/pending'));
         const proposals = await response.json();
         
         const floatBtn = document.getElementById('approval-notification-btn');
@@ -453,7 +485,7 @@ function closeApprovalModal() {
 // Load modal content (called when opening modal)
 async function loadModalContent() {
     try {
-        const response = await fetch('/api/approvals/pending');
+        const response = await fetch(apiUrl('/api/approvals/pending'));
         const proposals = await response.json();
         const modalBody = document.getElementById('approval-modal-body');
         
@@ -478,11 +510,11 @@ function showBrowserNotification(title, body) {
     }
     
     if (Notification.permission === "granted") {
-        new Notification(title, { body, icon: '/favicon.ico' });
+        new Notification(title, { body, icon: apiUrl('/favicon.ico') });
     } else if (Notification.permission !== "denied") {
         Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-                new Notification(title, { body, icon: '/favicon.ico' });
+                new Notification(title, { body, icon: apiUrl('/favicon.ico') });
             }
         });
     }
@@ -573,7 +605,7 @@ async function handleProposalDecision(proposalId, decision) {
         const reasonInput = document.getElementById(`reason-${proposalId}`);
         const reason = reasonInput ? reasonInput.value.trim() : '';
         
-        const response = await fetch(`/api/approvals/${proposalId}/decide`, {
+        const response = await fetch(apiUrl(`/api/approvals/${proposalId}/decide`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -587,7 +619,10 @@ async function handleProposalDecision(proposalId, decision) {
         
         if (response.ok) {
             const actionText = decision === 'KEEP_CAR' ? 'KEEP & REPAIR' : 'DISPOSE';
-            showNotification(`✅ Decision: ${actionText} - Workflow will complete shortly`, 'success');
+            showNotification(`✅ Decision: ${actionText} - Workflow will complete shortly`);
+            loadAllCars();
+            setTimeout(loadAllCars, 3000);
+            setTimeout(loadAllCars, 8000);
             
             // Remove the approval card with animation
             const card = document.getElementById(`approval-${proposalId}`);
@@ -621,12 +656,18 @@ function startApprovalPolling() {
     
     // Load immediately
     loadPendingApprovals();
+    loadAllCars();
     
     // Then poll every 2 seconds
     if (approvalPollingInterval) {
         clearInterval(approvalPollingInterval);
     }
-    approvalPollingInterval = setInterval(loadPendingApprovals, 2000);
+    approvalPollingInterval = setInterval(() => {
+        loadPendingApprovals();
+        if (processingCarIds.size > 0) {
+            loadAllCars();
+        }
+    }, 2000);
 }
 
 // Stop polling for pending approvals

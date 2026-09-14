@@ -16,7 +16,7 @@ spec:
       optional: true
   steps:
     - name: compile
-      # JDK 21 so quarkus-hitl (release 21) and n-1 templates (release 17) both compile.
+      # JDK 21 so quarkus-hitl / camel-supervisor (release 21) and n-1 templates (release 17) both compile.
       image: registry.access.redhat.com/ubi9/openjdk-21:1.23
       env:
         - name: LANGUAGE
@@ -29,8 +29,7 @@ spec:
         echo "============================================================"
         echo "[SSSC] Compile application sources via Nexus"
         echo "Control: dependencies resolve from the platform Nexus (preloaded / proxied),"
-        echo "         not from Maven Central. The local repo lives on the build PVC"
-        echo "         next to the git checkout (source/) so later PipelineRuns reuse it."
+        echo "         then from a seeded local repo on the build PVC (rhads/m2-seed.tar.gz)."
         echo "Language: ${LANGUAGE}"
         echo "============================================================"
         if [ "${LANGUAGE}" != "maven" ]; then
@@ -56,8 +55,19 @@ spec:
         # Sibling of source/ on the persistent build PVC. git-clone only mounts source/.
         REPO="${ROOT}/repository"
         mkdir -p "${REPO}"
+        SEED_URL="${MAVEN_SEED_URL:-http://nexus.nexus.svc:8081/repository/raw-hosted/rhads/m2-seed.tar.gz}"
         CACHE_KB="$(du -sk "${REPO}" 2>/dev/null | awk '{print $1}')"
         echo "Persistent Maven local repository: ${REPO} ($(du -sh "${REPO}" 2>/dev/null | awk '{print $1}'))"
+        if [ "${CACHE_KB:-0}" -le 10240 ]; then
+          if curl -sfI "${SEED_URL}" >/dev/null; then
+            echo "SEED: extracting preloaded Maven repository from Nexus (${SEED_URL})"
+            curl -sf "${SEED_URL}" | tar -xz -C "${REPO}"
+            CACHE_KB="$(du -sk "${REPO}" 2>/dev/null | awk '{print $1}')"
+            echo "Seeded Maven cache: $(du -sh "${REPO}" | awk '{print $1}')"
+          else
+            echo "CACHE COLD: m2 seed not published yet (Job rhads-maven-warm); resolving via Nexus"
+          fi
+        fi
         MVN_ARGS+=("-Dmaven.repo.local=${REPO}")
         if [ "${CACHE_KB:-0}" -gt 10240 ]; then
           echo "CACHE WARM: ${CACHE_KB} KiB already on the PVC; Maven offline first"

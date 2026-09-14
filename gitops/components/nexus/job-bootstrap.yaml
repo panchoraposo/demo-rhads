@@ -76,12 +76,20 @@ spec:
                      -H 'Content-Type: application/json' \
                      -d '{"name":"npm-group","online":true,"storage":{"blobStoreName":"default","strictContentTypeValidation":true},"group":{"memberNames":["npm-hosted","npm-proxy"]}}' \
                 || echo "npm-group already present"
+              echo "--- raw hosted (preloaded Maven local-repo tarball for Tekton) ---"
+              if ! curl -sf "${AUTH[@]}" "${NEXUS}/service/rest/v1/repositories/raw/hosted/raw-hosted" >/dev/null; then
+                curl -sf "${AUTH[@]}" -X POST "${NEXUS}/service/rest/v1/repositories/raw/hosted" \
+                  -H 'Content-Type: application/json' \
+                  -d '{"name":"raw-hosted","online":true,"storage":{"blobStoreName":"default","strictContentTypeValidation":false,"writePolicy":"ALLOW"}}' \
+                  || echo "raw-hosted create returned non-2xx"
+              fi
               echo "--- warm Maven cache (Quarkus Red Hat BOM + plugins) ---"
               warm() { echo "GET $1"; curl -sf -o /dev/null "$1" && echo OK || echo MISS; }
               BASE="${NEXUS}/repository/maven-public"
               warm "${BASE}/com/redhat/quarkus/platform/quarkus-bom/3.20.6.redhat-00004/quarkus-bom-3.20.6.redhat-00004.pom"
               warm "${BASE}/com/redhat/quarkus/platform/quarkus-camel-bom/3.20.6.redhat-00004/quarkus-camel-bom-3.20.6.redhat-00004.pom"
               warm "${BASE}/com/redhat/quarkus/platform/quarkus-bom/3.33.3.redhat-00001/quarkus-bom-3.33.3.redhat-00001.pom"
+              warm "${BASE}/com/redhat/quarkus/platform/quarkus-camel-bom/3.33.3.redhat-00001/quarkus-camel-bom-3.33.3.redhat-00001.pom"
               warm "${BASE}/com/redhat/quarkus/platform/quarkus-langchain4j-bom/3.33.3.redhat-00001/quarkus-langchain4j-bom-3.33.3.redhat-00001.pom"
               warm "${BASE}/io/quarkus/quarkus-core/3.20.6/quarkus-core-3.20.6.pom"
               warm "${BASE}/org/apache/commons/commons-text/1.9/commons-text-1.9.pom"

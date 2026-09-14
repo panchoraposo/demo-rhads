@@ -78,7 +78,7 @@ public class ApprovalResource {
 
     private Response decide(Integer proposalId, boolean approved, String reason, String approvedBy) {
         try {
-            Log.infof("HITL decision for proposal %d by %s: approved=%s", proposalId, approvedBy, approved);
+            Log.debugf("HITL decision for proposal %d by %s: approved=%s", proposalId, approvedBy, approved);
             return Response.ok(approvalService.processDecision(proposalId, approved, reason, approvedBy)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(Map.of("error", e.getMessage())).build();

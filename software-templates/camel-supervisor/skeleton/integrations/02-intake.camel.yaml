@@ -1,0 +1,130 @@
+
+# THREE specialist analyzers (Quarkus FeedbackWorkflow + DispositionFeedbackAgent).
+# The supervisor EIP in 03-workflow.camel.yaml then picks which tools to run.
+
+- route:
+    id: process-return
+    description: Load car and dispatch the supervisor workflow
+    from:
+      uri: direct:process-return
+      steps:
+        - to: bean:workflowSupport?method=bindRequest
+        - setProperty:
+            name: workflowType
+            constant: supervisor
+        - to: bean:fleetStore?method=find(${exchangeProperty.carNumber})
+        - setProperty:
+            name: car
+            simple: ${body}
+        - setProperty:
+            name: userPrompt
+            simple: |-
+              Make: ${exchangeProperty.car[make]}
+              Model: ${exchangeProperty.car[model]}
+              Year: ${exchangeProperty.car[year]}
+              Previous: ${exchangeProperty.car[condition]}
+              Status: ${exchangeProperty.car[status]}
+              Feedback: ${exchangeProperty.feedback}
+        - log:
+            loggingLevel: INFO
+            message: "▶ supervisor car=#${exchangeProperty.carNumber} feedback=${exchangeProperty.feedback}"
+        - to: direct:workflow
+        - to: bean:workflowSupport?method=response
+        - log:
+            loggingLevel: INFO
+            message: "✅ supervisor car=#${exchangeProperty.carNumber} action=${body[workflow][action]}"
+- route:
+    id: cleaning-feedback-agent
+    description: CleaningFeedbackAgent — dirt/stains/odor only
+    from:
+      uri: direct:cleaning-feedback-agent
+      steps:
+        - setBody:
+            simple: ${exchangeProperty.userPrompt}
+        - to:
+            uri: openai:chat-completion
+            parameters:
+              systemMessage: You are a cleaning analyzer for a car rental company. Decide
+                from the current Feedback, not from Previous condition.
+                Maintenance never cleans cars. Collision, totaled, destroyed,
+                airbags, or frame damage is NOT cleaning. A wash, "could use a
+                wash", "needs a wash", dirt, mud, stains, dog hair, or odor
+                means cleaningRequired=true. Previous "excellent" does NOT
+                override a wash request. Reply with JSON only. /no_think
+                cleaningNotes CLEANING_NOT_REQUIRED only when the feedback does
+                not ask for any wash or cleaning. condition = short phrase.
+              temperature: 0
+              maxTokens: 512
+              jsonSchema: file:schemas/cleaning.schema.json
+        - log:
+            loggingLevel: INFO
+            message: 🧠 CleaningFeedback raw=${body}
+        - to: bean:workflowSupport?method=extractJson
+        - unmarshal:
+            json: {}
+        - to: bean:workflowSupport?method=captureCleaning
+- route:
+    id: maintenance-feedback-agent
+    description: MaintenanceFeedbackAgent — mechanical / moderate body damage
+    from:
+      uri: direct:maintenance-feedback-agent
+      steps:
+        - setBody:
+            simple: ${exchangeProperty.userPrompt}
+        - to:
+            uri: openai:chat-completion
+            parameters:
+              systemMessage: You are a car maintenance analyzer. Maintenance never includes
+                cleaning or detailing. Strange noises, engine issues, oil light,
+                leaks, brakes grinding, or moderate body damage means
+                maintenanceRequired=true EVEN IF the car is also dirty. Dirt,
+                mud, stains, hair, odor, or a wash request ALONE is NOT
+                maintenance — set maintenanceRequired=false. If feedback says a
+                problem is already fixed, repaired, or completed (for example
+                "fixed the brakes"), set maintenanceRequired=false. If the car
+                is totaled, destroyed, or airbags deployed from a serious
+                collision, set maintenanceRequired=false — that is disposition,
+                not a workshop repair. Reply with JSON only. /no_think
+                maintenanceNotes MAINTENANCE_NOT_REQUIRED when false.
+              temperature: 0
+              maxTokens: 512
+              jsonSchema: file:schemas/maintenance.schema.json
+        - log:
+            loggingLevel: INFO
+            message: 🧠 MaintenanceFeedback raw=${body}
+        - to: bean:workflowSupport?method=extractJson
+        - unmarshal:
+            json: {}
+        - to: bean:workflowSupport?method=captureMaintenance
+- route:
+    id: disposition-feedback-agent
+    description: DispositionFeedbackAgent — severe damage / remove from fleet
+    from:
+      uri: direct:disposition-feedback-agent
+      steps:
+        - setBody:
+            simple: ${exchangeProperty.userPrompt}
+        - to:
+            uri: openai:chat-completion
+            parameters:
+              systemMessage: |-
+                You are a disposition analyzer for a car rental company.
+                Set dispositionRequired=true ONLY for catastrophic loss:
+                wrecked, totaled, destroyed, crashed, collision with major
+                damage, frame/structural damage, or airbags deployed. Then
+                dispositionAction=SCRAP. Repairable mechanical issues are NOT
+                disposition. Engine making noise, needs inspection, oil
+                light, leaks, brakes, or moderate body damage means
+                dispositionRequired=false and dispositionAction=KEEP. Minor
+                scratches or dirt is DISPOSITION_NOT_REQUIRED. Reply with JSON
+                only. /no_think
+              temperature: 0
+              maxTokens: 512
+              jsonSchema: file:schemas/disposition.schema.json
+        - log:
+            loggingLevel: INFO
+            message: 🧠 DispositionFeedback raw=${body}
+        - to: bean:workflowSupport?method=extractJson
+        - unmarshal:
+            json: {}
+        - to: bean:workflowSupport?method=captureDisposition

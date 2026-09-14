@@ -1,0 +1,162 @@
+#
+# HTTP API — same contract as the Quarkus Miles of Smiles UI.
+#
+- route:
+    id: api-list-fleet
+    from:
+      uri: platform-http:/api/fleet
+      parameters:
+        httpMethodRestrict: GET
+      steps:
+        - to: "bean:fleetStore?method=list"
+        - marshal:
+            json: {}
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-process-return
+    from:
+      uri: platform-http:/api/returns
+      parameters:
+        httpMethodRestrict: POST
+      steps:
+        - doTry:
+            steps:
+              - unmarshal:
+                  json: {}
+              - to: "direct:process-return"
+              - marshal:
+                  json: {}
+              - setHeader:
+                  name: Content-Type
+                  constant: application/json
+            doCatch:
+              - exception:
+                  - java.lang.Exception
+                steps:
+                  - log:
+                      loggingLevel: ERROR
+                      message: "Return processing failed: ${exception.message}"
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      constant: "500"
+                  - setHeader:
+                      name: Content-Type
+                      constant: application/json
+                  - setBody:
+                      simple: '{"error":"${exception.message}"}'
+
+- route:
+    id: api-work-orders
+    from:
+      uri: platform-http:/api/work-orders
+      parameters:
+        httpMethodRestrict: GET
+      steps:
+        - to: "bean:workOrders?method=list"
+        - marshal:
+            json: {}
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-reset-fleet
+    from:
+      uri: platform-http:/api/fleet/reset
+      parameters:
+        httpMethodRestrict: POST
+      steps:
+        - to: "bean:fleetStore?method=reset"
+        - setBody:
+            constant: '{"status":"reset"}'
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-model-info
+    from:
+      uri: platform-http:/api/info
+      parameters:
+        httpMethodRestrict: GET
+      steps:
+        - setBody:
+            simple: '{"baseUrl":"{{ai.base-url}}","model":"{{ai.model}}"}'
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-llm
+    from:
+      uri: platform-http:/llm
+      parameters:
+        httpMethodRestrict: GET
+      steps:
+        - setBody:
+            simple: '{"label":"{{ai.model}}"}'
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-observe-health
+    from:
+      uri: platform-http:/observe/health
+      parameters:
+        httpMethodRestrict: GET
+      steps:
+        - setBody:
+            constant: '{"status":"UP"}'
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-list-cars
+    from:
+      uri: platform-http:/cars
+      parameters:
+        httpMethodRestrict: GET
+      steps:
+        - to: "bean:fleetStore?method=list"
+        - marshal:
+            json: {}
+        - setHeader:
+            name: Content-Type
+            constant: application/json
+
+- route:
+    id: api-workshop-return
+    from:
+      uri: platform-http:/car-management/return/{carNumber}
+      parameters:
+        httpMethodRestrict: POST
+      steps:
+        - doTry:
+            steps:
+              - to: "bean:workflowSupport?method=bindRequest"
+              - to: "direct:process-return"
+              - marshal:
+                  json: {}
+              - setHeader:
+                  name: Content-Type
+                  constant: application/json
+            doCatch:
+              - exception:
+                  - java.lang.Exception
+                steps:
+                  - log:
+                      loggingLevel: ERROR
+                      message: "Return processing failed: ${exception.message}"
+                  - setHeader:
+                      name: CamelHttpResponseCode
+                      constant: "500"
+                  - setHeader:
+                      name: Content-Type
+                      constant: application/json
+                  - setBody:
+                      simple: '{"error":"${exception.message}"}'

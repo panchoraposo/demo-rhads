@@ -20,7 +20,6 @@ public final class WorkflowTraceListener implements AgentListener {
             "ImageAnalysisWorkflow",
             "FleetSupervisorAgent",
             "CarConditionFeedbackAgent",
-            "PricingAgent",
             "DispositionAgent",
             "DispositionProposalAgent",
             "HumanApprovalAgent",

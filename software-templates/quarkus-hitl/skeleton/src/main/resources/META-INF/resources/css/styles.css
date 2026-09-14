@@ -3,6 +3,7 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 20px;
+    padding-bottom: 56px;
     background-color: #f5f5f5;
 }
 
@@ -308,6 +309,19 @@ td form {
 .demo-header nav a:hover {
     color: #ee0000;
     border-bottom-color: #ee0000;
+}
+
+.demo-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #151515;
+    color: #c7c7c7;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 10px 20px;
+    z-index: 40;
 }
 /* ============================================================================
    HUMAN-IN-THE-LOOP APPROVAL STYLES

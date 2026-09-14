@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MaintenanceFeedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["maintenanceRequired", "maintenanceServices", "maintenanceNotes"],
+  "properties": {
+    "maintenanceRequired": { "type": "boolean" },
+    "maintenanceServices": { "type": "array", "items": { "type": "string" } },
+    "maintenanceNotes": { "type": "string" }
+  }
+}

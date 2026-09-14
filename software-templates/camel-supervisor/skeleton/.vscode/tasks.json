@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Camel JBang + MaaS",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/run-maas.sh",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "Camel JBang + Ollama",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/run-local.sh",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    }
+  ]
+}

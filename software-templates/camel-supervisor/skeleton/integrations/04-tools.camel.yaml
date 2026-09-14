@@ -1,0 +1,54 @@
+#
+# Camel route as tool (Quarkus @Tool analog).
+#
+- route:
+    id: tool-request-cleaning
+    description: Cleaning department work order
+    from:
+      uri: direct:tool-request-cleaning
+      steps:
+        - to: "bean:workflowSupport?method=cleaningWorkOrder"
+        - marshal:
+            json:
+              prettyPrint: true
+        - to:
+            uri: file:work-orders
+            parameters:
+              fileName: "cleaning-car-${exchangeProperty.carNumber}-${date:now:yyyyMMdd-HHmmss}.json"
+        - to: "bean:workflowSupport?method=logCleaningTool"
+
+- route:
+    id: tool-request-maintenance
+    description: Maintenance department work order
+    from:
+      uri: direct:tool-request-maintenance
+      steps:
+        - to: "bean:workflowSupport?method=maintenanceWorkOrder"
+        - marshal:
+            json:
+              prettyPrint: true
+        - to:
+            uri: file:work-orders
+            parameters:
+              fileName: "maintenance-car-${exchangeProperty.carNumber}-${date:now:yyyyMMdd-HHmmss}.json"
+        - log:
+            loggingLevel: INFO
+            message: "🔧 MaintenanceTool car=#${exchangeProperty.carNumber}"
+
+- route:
+    id: tool-request-disposition
+    description: Disposition work order (Quarkus DispositionAgent analog)
+    from:
+      uri: direct:tool-request-disposition
+      steps:
+        - to: "bean:workflowSupport?method=dispositionWorkOrder"
+        - marshal:
+            json:
+              prettyPrint: true
+        - to:
+            uri: file:work-orders
+            parameters:
+              fileName: "disposition-car-${exchangeProperty.carNumber}-${date:now:yyyyMMdd-HHmmss}.json"
+        - log:
+            loggingLevel: INFO
+            message: "📋 DispositionTool car=#${exchangeProperty.carNumber} action=${exchangeProperty.intake[dispositionAction]} value=${exchangeProperty.carValue}"

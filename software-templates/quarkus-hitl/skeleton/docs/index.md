@@ -13,13 +13,13 @@ Miles of Smiles **step 05** ([quarkus-langchain-agentic](https://github.com/panc
    - **fleet-ui** → car grid (`/`)
    - **quarkus-dev-ui** → `/q/dev-ui`
    - **swagger-ui** → `/q/swagger-ui`
-5. Return a Mercedes / BMW / Audi / Civic (`RENTED`) with a totaled/collision prompt. If estimated value is **> $15,000**, use **Approval Needed**.
+5. Return a Mercedes / BMW / Audi / Civic (`RENTED`) with a totaled/collision prompt. **Approval Needed** appears for the write-off (the Return request returns immediately so Dev Spaces does not time out).
 
 ```text
 The car was in a serious collision. Front end is completely destroyed and airbags deployed.
 ```
 
-A 12-year-old Ford Focus with the same prompt usually skips HITL.
+A 12-year-old Ford Focus with the same prompt still pauses for a human; the card shows a lower book value.
 
 ## Supply chain
 

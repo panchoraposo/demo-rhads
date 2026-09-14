@@ -7,5 +7,6 @@ spec:
   targets:
     - ../software-templates/quarkus-agentic/template.yaml
     - ../software-templates/quarkus-hitl/template.yaml
+    - ../software-templates/camel-supervisor/template.yaml
     - ../software-templates/camel-agentic/template.yaml
     - ../software-templates/nodejs-agentic/template.yaml

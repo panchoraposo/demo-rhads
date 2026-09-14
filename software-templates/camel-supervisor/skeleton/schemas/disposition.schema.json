@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DispositionFeedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dispositionRequired", "dispositionAction", "dispositionNotes"],
+  "properties": {
+    "dispositionRequired": { "type": "boolean" },
+    "dispositionAction": {
+      "type": "string",
+      "enum": ["SCRAP", "SELL", "DONATE", "KEEP"]
+    },
+    "dispositionNotes": { "type": "string" }
+  }
+}

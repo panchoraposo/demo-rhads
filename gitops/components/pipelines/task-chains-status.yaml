@@ -11,7 +11,7 @@ spec:
       type: string
   steps:
     - name: show
-      image: registry.redhat.io/openshift4/ose-cli:latest
+      image: registry.redhat.io/openshift4/ose-cli@sha256:69762925e16053d77685ff3a08b3b45dd2bfa5d68277851bc6969b368bbd0cb9
       env:
         - name: PIPELINE_RUN
           value: $(params.PIPELINE_RUN)

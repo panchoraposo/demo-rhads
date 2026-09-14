@@ -84,7 +84,7 @@ public class HumanApprovalAgent {
         String reason = HitlContext.firstNonBlank(dispositionProposal,
                 formatFallbackReason(proposed, carValue, carCondition, feedback));
 
-        Log.infof("HITL: creating approval proposal for car %d — %s %s %s (value=%s proposed=%s feedback=%s)",
+        Log.debugf("HITL: creating approval proposal for car %d — %s %s %s (value=%s proposed=%s feedback=%s)",
                 carNumber, carYear, carMake, carModel, carValue, proposed,
                 feedback.length() > 80 ? feedback.substring(0, 80) + "…" : feedback);
 
@@ -107,7 +107,7 @@ public class HumanApprovalAgent {
             }
             ApprovalProposal result = future.get(5, TimeUnit.MINUTES);
             HitlContext.clear(result.carNumber);
-            Log.infof("HITL resumed — human decision: %s", result.decision);
+            Log.debugf("HITL resumed — human decision: %s", result.decision);
             return String.format("""
                 Human Decision: %s
                 Reason: %s

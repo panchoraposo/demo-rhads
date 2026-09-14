@@ -1,0 +1,31 @@
+---
+openapi: 3.0.3
+info:
+  title: ${{values.component_id}} API
+  version: 1.0-SNAPSHOT
+  description: Miles of Smiles Camel supervisor (step 04)
+paths:
+  /cars:
+    get:
+      summary: List cars
+      responses:
+        "200":
+          description: OK
+  /car-management/return/{id}:
+    post:
+      summary: Process a car return (supervisor workflow)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "{ car, workflow }"
+  /q/health:
+    get:
+      summary: Health
+      responses:
+        "200":
+          description: OK

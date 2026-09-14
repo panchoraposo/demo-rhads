@@ -117,8 +117,8 @@ commands:
         # shellcheck disable=SC1091
         . .devcontainer/setup-java.sh
         bash .devcontainer/setup-maas.sh
-        echo "Endpoints: fleet-ui (/)  |  quarkus-dev-ui (/q/dev-ui)  |  swagger-ui (/q/swagger-ui)"
-        ./mvnw -s .mvn/settings.xml quarkus:dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080
+        echo "Open PORTS → fleet-ui (public URL). Simple Browser /admin/<ws>/8080/ works after a reload."
+        ./mvnw -s .mvn/settings.xml quarkus:dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -Dquarkus.test.continuous-testing=disabled -Dquarkus.analytics.disabled=true
       workingDir: ${PROJECT_SOURCE}
 # postStart is omitted so the IDE becomes ready as soon as the UDI is up.
 # Inner loop: Write .env for Red Hat MaaS → Quarkus dev → open quarkus-dev-ui.

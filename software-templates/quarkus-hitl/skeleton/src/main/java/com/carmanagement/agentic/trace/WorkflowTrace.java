@@ -28,6 +28,16 @@ public final class WorkflowTrace {
         Log.info("🧠 " + name + " raw=" + compact(output));
     }
 
+    /** 202 body while the worker runs (Che cannot hold a 5-minute HITL POST). Same envelope as the finished 200. */
+    public static WorkflowResult processing(CarInfo carInfo) {
+        Map<String, Object> workflow = new LinkedHashMap<>();
+        workflow.put("type", "supervisor");
+        workflow.put("action", "PROCESSING");
+        workflow.put("intake", Map.of());
+        workflow.put("steps", List.of("intake"));
+        return new WorkflowResult(snapshot(carInfo), workflow);
+    }
+
     public static void assignment(String type, Map<String, Object> intake) {
         boolean cleaning = flag(intake, "cleaningRequired");
         boolean maintenance = flag(intake, "maintenanceRequired");
@@ -36,14 +46,14 @@ public final class WorkflowTrace {
         switch (type) {
             case "supervisor" -> {
                 String agent = switch (assignment) {
-                    case "DISPOSITION" -> "PricingAgent+DispositionAgent";
+                    case "DISPOSITION" -> "PricingAgent+DispositionProposalAgent+HumanApprovalAgent";
                     case "MAINTENANCE" -> "MaintenanceAgent";
                     case "CLEANING" -> "CleaningAgent";
                     default -> "(none)";
                 };
                 Log.info("🧠 supervisor assignment=" + assignment + " agent=" + agent);
                 if ("DISPOSITION".equals(assignment)) {
-                    Log.info("Supervisor → DispositionAgent + PricingAgent");
+                    Log.info("Supervisor → PricingAgent + DispositionProposalAgent + HumanApprovalAgent");
                 } else if ("NONE".equals(assignment)) {
                     Log.info("Supervisor: car remains available");
                 }
@@ -72,9 +82,8 @@ public final class WorkflowTrace {
         switch (action) {
             case "PENDING_DISPOSITION" -> {
                 WorkOrderWriter.disposition(carNumber, car, intake);
-                Log.info("📋 DispositionTool car=#" + carNumber
-                        + " action=" + intake.getOrDefault("dispositionAction", "")
-                        + " value=" + intake.getOrDefault("carValue", ""));
+                dispositionTool(carNumber, intake.getOrDefault("dispositionAction", ""),
+                        intake.getOrDefault("carValue", ""));
             }
             case "AT_MAINTENANCE" -> {
                 WorkOrderWriter.maintenance(carNumber, car, intake);
@@ -87,6 +96,10 @@ public final class WorkflowTrace {
             default -> {
             }
         }
+    }
+
+    public static void dispositionTool(Integer carNumber, Object action, Object value) {
+        Log.info("📋 DispositionTool car=#" + carNumber + " action=" + action + " value=" + value);
     }
 
     public static void done(String type, Integer carNumber, String action) {

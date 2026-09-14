@@ -1,0 +1,134 @@
+schemaVersion: 2.2.0
+metadata:
+  name: ${{values.component_id}}
+  displayName: ${{values.component_id}}
+  description: ${{values.description}}
+  tags: [Java, Camel, Kaoto, JBang, MaaS]
+  projectType: camel
+attributes:
+  controller.devfile.io/storage-type: per-user
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:latest
+      memoryLimit: 8Gi
+      memoryRequest: 2Gi
+      mountSources: true
+      command: ["sleep", "infinity"]
+      endpoints:
+        - name: fleet-ui
+          targetPort: 8080
+          exposure: public
+          protocol: https
+          path: /
+          attributes:
+            discoverable: "true"
+            cookiesAuthEnabled: "true"
+            urlRewriteSupported: "true"
+        - name: camel-dev-console
+          targetPort: 8080
+          exposure: public
+          protocol: https
+          path: /q/dev
+          attributes:
+            discoverable: "true"
+            cookiesAuthEnabled: "true"
+            urlRewriteSupported: "true"
+      env:
+        - name: CAMEL_VERSION
+          value: "4.18.3"
+        - name: MAAS_BASE_URL
+          value: ${{values.maas_base_url | dump}}
+        - name: MAAS_MODEL
+          value: ${{values.maas_model | dump}}
+        - name: MAAS_API_KEY
+          value: ${{values.maas_api_key | dump}}
+        - name: GITSIGN_FULCIO_URL
+          value: https://fulcio-server-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_REKOR_URL
+          value: https://rekor-server-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_OIDC_ISSUER
+          value: https://sso.${{values.cluster_subdomain}}/realms/backstage
+        - name: GITSIGN_OIDC_CLIENT_ID
+          value: trusted-artifact-signer
+        - name: GITSIGN_TUF_URL
+          value: https://tuf-trusted-artifact-signer.${{values.cluster_subdomain}}
+        - name: GITSIGN_CERT_IDENTITY
+          value: dev1@rhads.demo
+        - name: CLUSTER_SUBDOMAIN
+          value: ${{values.cluster_subdomain}}
+      volumeMounts:
+        - name: m2
+          path: /home/user/.m2
+        - name: jbang
+          path: /home/user/.jbang
+  - name: m2
+    volume:
+      size: 5Gi
+  - name: jbang
+    volume:
+      size: 3Gi
+commands:
+  - id: install-camel
+    exec:
+      label: Install JBang + Camel CLI
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: >-
+        bash -lc 'set -euo pipefail;
+        export PATH="$HOME/.jbang/bin:$PATH";
+        if ! command -v jbang >/dev/null 2>&1; then
+          curl -Ls https://sh.jbang.dev | bash;
+        fi;
+        mkdir -p "$HOME/.jbang/bin";
+        grep -q ".jbang/bin" "$HOME/.bashrc" 2>/dev/null || echo "export PATH=\"\$HOME/.jbang/bin:\$PATH\"" >> "$HOME/.bashrc";
+        jbang trust add https://github.com/apache/camel >/dev/null 2>&1 || true;
+        jbang app install camel@apache/camel;
+        camel version set 4.18.3 || true;
+        echo "jbang=$(jbang version 2>/dev/null | head -n 1)";
+        echo "camel=$(camel version 2>/dev/null | head -n 1)"'
+      group:
+        kind: build
+        isDefault: true
+  - id: setup-maas
+    exec:
+      label: Write .env for Red Hat MaaS
+      component: tools
+      commandLine: bash .devcontainer/setup-maas.sh
+      workingDir: ${PROJECT_SOURCE}
+  - id: run-maas
+    exec:
+      label: Camel JBang + MaaS (fleet UI on 8080)
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: bash -lc 'export PATH="$HOME/.jbang/bin:$PATH"; bash .devcontainer/setup-maas.sh; ./scripts/run-maas.sh'
+      group:
+        kind: run
+        isDefault: true
+  - id: open-kaoto
+    exec:
+      label: Open Kaoto canvas (03-workflow.camel.yaml)
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: echo "Open integrations/03-workflow.camel.yaml and run Kaoto (right-click → Open with Kaoto, or command palette → Kaoto)."
+  - id: setup-gitsign
+    exec:
+      label: Configure Sigstore git commit signing (gitsign + RHTAS TUF)
+      component: tools
+      commandLine: bash .devcontainer/setup-gitsign.sh
+      workingDir: ${PROJECT_SOURCE}
+  - id: verify-gitsign
+    exec:
+      label: Verify Sigstore-signed HEAD (gitsign + RHTAS TUF)
+      component: tools
+      commandLine: bash .devcontainer/verify-gitsign.sh
+      workingDir: ${PROJECT_SOURCE}
+  - id: package
+    exec:
+      label: Maven package (Nexus) — cluster image
+      component: tools
+      commandLine: ./mvnw -s .mvn/settings.xml -DskipTests package
+      workingDir: ${PROJECT_SOURCE}
+events:
+  postStart:
+    - install-camel
