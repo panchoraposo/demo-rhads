@@ -76,6 +76,7 @@
     cd "${DEST}"
     perl -pi -e 's/GITLAB_HOST_PLACEHOLDER/{{ gitlab_host }}/g; s/QUAY_HOST_PLACEHOLDER/{{ quay_host }}/g; s/CLUSTER_SUBDOMAIN_PLACEHOLDER/{{ openshift_base_domain }}/g' \
       software-templates/quarkus-agentic/template.yaml \
+      software-templates/quarkus-hitl/template.yaml \
       software-templates/camel-agentic/template.yaml \
       software-templates/nodejs-agentic/template.yaml
     git init

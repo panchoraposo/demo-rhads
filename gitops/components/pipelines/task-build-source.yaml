@@ -16,7 +16,8 @@ spec:
       optional: true
   steps:
     - name: compile
-      image: registry.access.redhat.com/ubi8/openjdk-17:1.16
+      # JDK 21 so quarkus-hitl (release 21) and n-1 templates (release 17) both compile.
+      image: registry.access.redhat.com/ubi9/openjdk-21:1.23
       env:
         - name: LANGUAGE
           value: $(params.LANGUAGE)

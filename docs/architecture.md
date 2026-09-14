@@ -97,13 +97,16 @@ Developer Hub waits for SSO at boot. If Keycloak comes up after Hub has already 
 
 ## Software templates
 
-Three Developer Hub templates, all app-of-apps:
+Four Developer Hub templates, all app-of-apps:
 
-- `quarkus-agentic` — Quarkus MCP server (Red Hat build of Quarkus)
+- `quarkus-agentic` — Quarkus MCP server (Red Hat build of Quarkus **3.20.6**, n-1 CVE demo)
+- `quarkus-hitl` — Miles of Smiles human-in-the-loop agents (Quarkus **3.33** + LangChain4j + MaaS, JDK 21). Default name `miles-smiles`.
 - `camel-agentic` — Camel Quarkus REST agent
 - `nodejs-agentic` — Express agent
 
-Component **name maxLength is 18** (OpenShift/Kubernetes name limits for the generated namespaces and resources). Default: `quarkus-agent`.
+Component **name maxLength is 18** (OpenShift/Kubernetes name limits for the generated namespaces and resources). Default for the CVE path: `quarkus-agent`.
+
+`quarkus-hitl` is current RHBQ (not n-1) so the HITL APIs work. Dev Spaces exposes **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`) on port 8080; the cluster Route uses H2 in-memory (no Postgres) and a 300s timeout for the approval wait. MaaS `MAAS_API_KEY` is stored in the GitOps Helm secret (same demo pattern as the Quay password).
 
 The scaffolder creates:
 
@@ -111,7 +114,7 @@ The scaffolder creates:
 2. An `{app}-gitops` repo with `argocd/applications.yaml` (build + dev + staging + prod)
 3. An Argo CD bootstrap Application on `argocd/`
 
-Templates ship **n-1** runtimes on purpose so TPA/RHDA have findings: Quarkus/Camel **3.20.6.redhat-00004**, OpenJDK **ubi8/openjdk-17**, Node.js **ubi9/nodejs-18**, plus known-vulnerable libraries (`commons-text` 1.9, `snakeyaml` 1.33, `express` 4.18.2, `lodash` 4.17.20). Ansible seeds matching OSV advisories into TPA; full CVE importers stay disabled so they do not fill the sandbox PVC.
+The CVE-demo templates (`quarkus-agentic`, `camel-agentic`, `nodejs-agentic`) ship **n-1** runtimes on purpose so TPA/RHDA have findings: Quarkus/Camel **3.20.6.redhat-00004**, OpenJDK **ubi8/openjdk-17**, Node.js **ubi9/nodejs-18**, plus known-vulnerable libraries (`commons-text` 1.9, `snakeyaml` 1.33, `express` 4.18.2, `lodash` 4.17.20). Ansible seeds matching OSV advisories into TPA; full CVE importers stay disabled so they do not fill the sandbox PVC.
 
 Catalog `catalog-info.yaml` sets `backstage.io/kubernetes-id` and **does not** set `backstage.io/kubernetes-namespace`. Hub Topology therefore lists the same deployment in `{app}-dev`, `{app}-staging`, and `{app}-prod`. Pinning the annotation to `-dev` hid the other environments.
 

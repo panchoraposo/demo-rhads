@@ -11,13 +11,15 @@ This cluster was installed from GitHub (`./install.sh`). GitLab holds the live G
 ## 1. Portal — create the app (4 min)
 
 1. Developer Hub → Keycloak OIDC login as **`dev1`**.
-2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay already filled in). Name **at most 18 characters** — leave the default `quarkus-agent`.
+2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay already filled in). Name **at most 18 characters** — leave the default `quarkus-agent`. For Miles of Smiles HITL + MaaS instead, Create → **Agentic app — Quarkus HITL** (`miles-smiles`) and paste the MaaS API key.
 3. Wait for the scaffolder to publish two repos and the Argo CD app-of-apps (`{app}-build`, `{app}-dev`, `{app}-staging`, `{app}-prod`).
 4. The GitOps webhook Job registers the GitLab hook, creates `rhads/{app}` in Quay, and **immediately triggers** the first build (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**, so it is there when Dev Spaces opens. Task `gitsign-verify` prints a WARN and still PASSes.
 
 ## 2. Inner loop in Dev Spaces (6 min)
 
 Start the workspace **before the audience is in the room**. The first start pulls the Universal Developer Image and che-code (several GB) and can take many minutes on a single-node sandbox. After that, the workspace stays running (idling is disabled) so opening it from the catalog is seconds, not minutes.
+
+**HITL + MaaS (Miles of Smiles):** command palette → **Write .env for Red Hat MaaS** (if the API key was not set at scaffold) → **Quarkus dev (fleet UI + Dev UI on 8080)**. Open the workspace endpoints **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`). Return Civic `#7` (or a Mercedes) with a collision prompt; **Approval Needed** appears when estimated value is above $15,000. Ford Focus `#5` usually skips HITL.
 
 1. On the catalog component, **OpenShift Dev Spaces (VS Code)** — reopen the workspace that is already Running.
 2. Open the manifest → command palette → **Red Hat Dependency Analytics**. Templates use **previous** Red Hat runtimes so TPA/RHDA have findings: Quarkus/Camel **3.20.6.redhat-00004** (n-1 of 3.27/3.33), OpenJDK **ubi8/openjdk-17:1.16**, Node.js **ubi9/nodejs-18:1-108**, plus **commons-text 1.9** / **snakeyaml 1.33** / **express 4.18.2** / **lodash 4.17.20**. RHDA talks to the **in-cluster TPA**, not Red Hat SaaS.

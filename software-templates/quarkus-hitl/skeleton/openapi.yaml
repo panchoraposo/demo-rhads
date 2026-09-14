@@ -1,0 +1,37 @@
+---
+openapi: 3.0.3
+info:
+  title: ${{values.component_id}} API
+  version: 1.0-SNAPSHOT
+  description: Miles of Smiles HITL car-return workflow
+paths:
+  /cars:
+    get:
+      summary: List cars
+      responses:
+        "200":
+          description: OK
+  /car-management/return/{id}:
+    post:
+      summary: Process a car return (may wait for human approval)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /approvals:
+    get:
+      summary: Pending HITL proposals
+      responses:
+        "200":
+          description: OK
+  /q/health:
+    get:
+      summary: Health
+      responses:
+        "200":
+          description: OK
