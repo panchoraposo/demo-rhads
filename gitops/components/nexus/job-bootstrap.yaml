@@ -86,6 +86,13 @@ spec:
               warm "${BASE}/org/apache/commons/commons-text/1.9/commons-text-1.9.jar"
               warm "${BASE}/org/yaml/snakeyaml/1.33/snakeyaml-1.33.pom"
               warm "${BASE}/org/yaml/snakeyaml/1.33/snakeyaml-1.33.jar"
+              # Patched versions used in the Dev Spaces inner-loop (do not delete; bump).
+              warm "${BASE}/org/apache/commons/commons-text/1.13.1/commons-text-1.13.1.pom"
+              warm "${BASE}/org/apache/commons/commons-text/1.13.1/commons-text-1.13.1.jar"
+              warm "${BASE}/org/apache/commons/commons-lang3/3.17.0/commons-lang3-3.17.0.pom"
+              warm "${BASE}/org/apache/commons/commons-lang3/3.17.0/commons-lang3-3.17.0.jar"
+              warm "${BASE}/org/yaml/snakeyaml/2.3/snakeyaml-2.3.pom"
+              warm "${BASE}/org/yaml/snakeyaml/2.3/snakeyaml-2.3.jar"
               warm "${BASE}/org/apache/maven/plugins/maven-compiler-plugin/3.14.0/maven-compiler-plugin-3.14.0.pom"
               warm "${BASE}/org/apache/maven/plugins/maven-surefire-plugin/3.5.4/maven-surefire-plugin-3.5.4.pom"
               echo "--- warm npm-group (pinned demo packages) ---"

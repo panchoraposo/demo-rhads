@@ -61,7 +61,9 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-opentelemetry</artifactId>
         </dependency>
-        <!-- Intentionally old: TPA / RHDA show CVE-2022-42889 (Text4Shell). -->
+        <!-- Intentionally old: TPA / RHDA show CVE-2022-42889 (Text4Shell) and CVE-2022-1471.
+             Demo inner-loop: bump to commons-text 1.13.1 and snakeyaml 2.3 (do not delete;
+             CustomerTools uses org.apache.commons.text.StringEscapeUtils). -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>

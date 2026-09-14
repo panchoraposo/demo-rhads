@@ -22,7 +22,23 @@ Start the workspace **before the audience is in the room**. The first start pull
 1. On the catalog component, **OpenShift Dev Spaces (VS Code)** — reopen the workspace that is already Running.
 2. Open the manifest → command palette → **Red Hat Dependency Analytics**. Templates use **previous** Red Hat runtimes so TPA/RHDA have findings: Quarkus/Camel **3.20.6.redhat-00004** (n-1 of 3.27/3.33), OpenJDK **ubi8/openjdk-17:1.16**, Node.js **ubi9/nodejs-18:1-108**, plus **commons-text 1.9** / **snakeyaml 1.33** / **express 4.18.2** / **lodash 4.17.20**. RHDA talks to the **in-cluster TPA**, not Red Hat SaaS.
 3. In another tab, **Trusted Profile Analyzer** (catalog link) and show the SBOM from the first build: those packages and CVEs.
-4. Change a string in a `@Tool` or in `index.html`.
+4. Do **not** delete the intentional CVE deps — `CustomerTools` imports `org.apache.commons.text.StringEscapeUtils`. In `pom.xml` **bump** them so TPA/RHDA findings drop and Maven still compiles:
+
+```xml
+        <!-- Fixed: CVE-2022-42889 (Text4Shell) and CVE-2022-1471. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.13.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.3</version>
+        </dependency>
+```
+
+Nexus already proxies those artifacts (`1.9`/`1.33` stay for the first SBOM).
 5. Command palette → **Configure Sigstore git commit signing (gitsign + RHTAS TUF)** (once per workspace). That installs gitsign, sets author `dev1@rhads.demo`, and initializes the **cluster TUF root** (private Fulcio is not in the public Sigstore TUF).
 6. In the terminal: `git add -A && git commit -m "demo: signed change from Dev Spaces"`. Dev Spaces has no `xdg-open` — copy the printed URL, log in as **`dev1` / `backstage`**, paste the verification code. The Fulcio certificate identity is the Keycloak email, not `dev1@rhads.com`.
 7. Command palette → **Verify Sigstore-signed HEAD (gitsign + RHTAS TUF)**. Then `git push origin main`.
@@ -56,6 +72,15 @@ On the catalog entity, **Topology** already shows `{app}-dev` (and pipeline `aff
 GitLab → Repository → Tags → `v1.0.0` on the commit **already built** (the GitLab tag starts the pipeline; the image stays tagged with the SHA).
 
 `{app}-promote` overlay `staging`: ACS → **Conforma STRICT** → GitOps → comment on the GitLab commit.
+
+ACS policy **Fixable Severity at least Important** is **report-only** on this demo (UBI n-1 images always have fixable RHSAs). If it still has `FAIL_BUILD`, the promote task fails even after bumping app libraries.
+
+To actually shrink those ACS findings in Dev Spaces (optional inner-loop), bump **both**:
+
+1. `pom.xml` platform (Quarkus + Netty), for example `3.20.6.SP2-redhat-00001` or `3.27.0.redhat-00002`
+2. `src/main/docker/Dockerfile.jvm` base image off `ubi8/openjdk-17:1.16`, for example `registry.access.redhat.com/ubi8/openjdk-17:1.23`
+
+Quarkus alone does **not** clear the gate: most BREAKS BUILD hits are RHSA on the UBI8 JDK image (`glibc`, `openjdk`, `python3`, …).
 
 ## 5. Promote to production (3 min)
 

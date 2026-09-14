@@ -113,18 +113,34 @@
     - acs_pw_raw.stdout | default('') | length > 0
   failed_when: false
 
-- name: Report-only for Fixable Severity at least Important (UBI demo images)
+- name: Fetch full Fixable Severity at least Important policy
   ansible.builtin.uri:
     url: "https://{{ acs_route.resources[0].spec.host }}/v1/policies/{{ item.id }}"
+    method: GET
+    user: admin
+    password: "{{ acs_pw_raw.stdout | b64decode }}"
+    force_basic_auth: true
+    validate_certs: false
+    status_code: [200]
+  loop: "{{ acs_policies.json.policies | default([]) | selectattr('name', 'equalto', 'Fixable Severity at least Important') | list }}"
+  register: acs_fixable_full
+  when:
+    - acs_policies.json is defined
+  failed_when: false
+
+- name: Report-only for Fixable Severity at least Important (UBI demo images)
+  ansible.builtin.uri:
+    url: "https://{{ acs_route.resources[0].spec.host }}/v1/policies/{{ item.json.id }}"
     method: PUT
     user: admin
     password: "{{ acs_pw_raw.stdout | b64decode }}"
     force_basic_auth: true
     validate_certs: false
     body_format: json
-    body: "{{ item | combine({'enforcementActions': []}) }}"
+    body: "{{ item.json | combine({'enforcementActions': []}) }}"
     status_code: [200, 400]
-  loop: "{{ acs_policies.json.policies | default([]) | selectattr('name', 'equalto', 'Fixable Severity at least Important') | list }}"
+  loop: "{{ acs_fixable_full.results | default([]) }}"
   when:
-    - acs_policies.json is defined
+    - item.json is defined
+    - item.json.id is defined
   failed_when: false
