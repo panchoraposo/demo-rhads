@@ -39,12 +39,24 @@ spec:
                 args:
                   - |
                     set -euo pipefail
-                    KC_URL="http://keycloak-service.keycloak.svc:8080/realms/backstage/.well-known/openid-configuration"
-                    echo "Waiting for in-cluster Keycloak at ${KC_URL}"
+                    # Workshop RHBK serves TLS on 8443 (httpEnabled=false).
+                    # RHADS-managed Keycloak serves HTTP on 8080.
+                    DISCOVERY="/realms/backstage/.well-known/openid-configuration"
+                    try_kc() {
+                      local url="$1"
+                      if curl -skf --max-time 5 "${url}" -o /tmp/oidc.json && grep -q '"issuer"' /tmp/oidc.json; then
+                        echo "Keycloak discovery OK at ${url}"
+                        return 0
+                      fi
+                      return 1
+                    }
+                    echo "Waiting for in-cluster Keycloak (${DISCOVERY})"
                     i=0
                     while [ "$i" -lt 180 ]; do
-                      if curl -sf --max-time 5 "${KC_URL}" -o /tmp/oidc.json; then
-                        echo "Keycloak service is serving the backstage realm"
+                      if try_kc "https://keycloak-service.keycloak.svc:8443${DISCOVERY}" \
+                        || try_kc "https://keycloak.keycloak.svc:8443${DISCOVERY}" \
+                        || try_kc "http://keycloak-service.keycloak.svc:8080${DISCOVERY}" \
+                        || try_kc "http://keycloak.keycloak.svc:8080${DISCOVERY}"; then
                         break
                       fi
                       i=$((i + 1))
