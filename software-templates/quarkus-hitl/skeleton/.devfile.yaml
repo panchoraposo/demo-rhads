@@ -80,11 +80,21 @@ commands:
       component: tools
       commandLine: bash .devcontainer/verify-gitsign.sh
       workingDir: ${PROJECT_SOURCE}
+  - id: setup-java
+    exec:
+      label: Install JDK 21 (required for quarkus:dev)
+      component: tools
+      commandLine: bash .devcontainer/setup-java.sh
+      workingDir: ${PROJECT_SOURCE}
   - id: package
     exec:
       label: Maven package (Nexus)
       component: tools
-      commandLine: ./mvnw -s .mvn/settings.xml -DskipTests package
+      commandLine: |
+        set -euo pipefail
+        # shellcheck disable=SC1091
+        . .devcontainer/setup-java.sh
+        ./mvnw -s .mvn/settings.xml -DskipTests package
       workingDir: ${PROJECT_SOURCE}
   - id: rhda
     exec:

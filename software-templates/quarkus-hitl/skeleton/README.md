@@ -8,7 +8,7 @@ Miles of Smiles **step 05** from [quarkus-langchain-agentic](https://github.com/
 
 1. Catalog → **OpenShift Dev Spaces (VS Code)**.
 2. Command palette → **Write .env for Red Hat MaaS** if `MAAS_API_KEY` is empty (OpenShift AI → Gen AI studio → API keys).
-3. Command palette → **Quarkus dev (fleet UI + Dev UI on 8080)**.
+3. Command palette → **Quarkus dev (fleet UI + Dev UI on 8080)**. That step selects **JDK 21** (the UDI default is 17; compiling `release` 21 with 17 fails).
 4. Open the workspace endpoints:
    - **fleet-ui** → car grid (`/`)
    - **quarkus-dev-ui** → `/q/dev-ui`
