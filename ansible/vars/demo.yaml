@@ -75,6 +75,8 @@ additional_groups:
         fullName: Developer Three
 
 # --- Keycloak / RHBK ---
+# OpenShift console stays on the cluster realm `sso` (workshop IDP `rhbk`).
+# Ansible reuses that Keycloak and only adds realms `backstage` and `trustify`.
 keycloak_namespace: keycloak
 keycloak_realm: backstage
 keycloak_trustify_realm: trustify

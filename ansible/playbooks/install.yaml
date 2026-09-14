@@ -15,3 +15,9 @@
     - role: acs-config
     - role: rhdh-config
     - role: dashboard
+  post_tasks:
+    - name: Keep OpenShift console on the cluster SSO realm
+      ansible.builtin.include_role:
+        name: openshift-config
+        tasks_from: restore-oauth.yaml
+        allow_duplicates: true

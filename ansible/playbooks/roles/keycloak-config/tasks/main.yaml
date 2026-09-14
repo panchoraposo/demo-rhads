@@ -28,3 +28,11 @@
 
 - name: Import Trustify realm for TPA
   include_tasks: trustify-realm.yaml
+
+- name: Verify OpenShift SSO realm is still served
+  ansible.builtin.uri:
+    url: "https://{{ keycloak_hostname }}/realms/sso/.well-known/openid-configuration"
+    method: GET
+    status_code: 200
+    validate_certs: false
+  when: cluster_sso_realm_present | default(false) | bool

@@ -11,7 +11,17 @@
   failed_when: false
   changed_when: true
 
-- name: Apply ODF StorageCluster and ObjectBucketClaims
+- name: Apply ODF StorageCluster when the cluster has none
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -f {{ repo_root }}/gitops/components/odf/storagecluster.yaml
+  register: apply_odf_sc
+  retries: 20
+  delay: 20
+  until: apply_odf_sc.rc == 0
+  changed_when: true
+  when: rhads_manage_odf_storagecluster | default(true) | bool
+
+- name: Apply ODF ObjectBucketClaims
   ansible.builtin.command:
     cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/odf
   register: apply_odf
@@ -24,14 +34,17 @@
   ansible.builtin.command:
     cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/keycloak
   changed_when: true
+  when: rhads_manage_keycloak | default(true) | bool
 
 - name: Create Keycloak TLS secret with cert-manager / openssl
   ansible.builtin.include_tasks: keycloak-tls.yaml
+  when: rhads_manage_keycloak | default(true) | bool
 
 - name: Render and apply Keycloak instance
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'keycloak-instance.yaml.j2') | from_yaml }}"
+  when: rhads_manage_keycloak | default(true) | bool
 
 - name: Point Keycloak Routes at HTTP so edge TLS on the router works
   ansible.builtin.shell: |
@@ -47,6 +60,7 @@
   delay: 10
   until: patch_kc_route.rc == 0
   failed_when: false
+  when: rhads_manage_keycloak | default(true) | bool
 
 - name: Ensure GitLab namespace
   kubernetes.core.k8s:

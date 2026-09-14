@@ -12,20 +12,21 @@ resources:
   - namespace-odf.yaml
   - namespace-ci.yaml
   # OwnNamespace operators
-  - operatorgroup-keycloak.yaml
+  # RHBK OperatorGroup + Subscription stay out of this kustomization.
+  # Workshop clusters already run Keycloak (realm `sso`) for OpenShift login;
+  # Ansible installs RHBK only when that SSO is absent.
   - operatorgroup-quay.yaml
   - operatorgroup-rhtpa.yaml
-  - operatorgroup-odf.yaml
+  # ODF OperatorGroup + odf-operator Subscription stay out of this kustomization.
+  # Workshop clusters already run external ODF; Ansible installs ODF only when absent.
   # AllNamespaces operators (RHDH, RHTAS, RHACS, Pipelines, Dev Spaces)
   # subscribe in openshift-operators — do not create namespaced OperatorGroups.
   - subscription-pipelines.yaml
   - subscription-rhdh.yaml
   - subscription-devworkspace.yaml
   - subscription-devspaces.yaml
-  - subscription-rhbk.yaml
   - subscription-quay.yaml
   - subscription-rhtas.yaml
   - subscription-rhtpa.yaml
   - subscription-rhacs.yaml
-  - subscription-odf.yaml
   - subscription-odf-mco.yaml

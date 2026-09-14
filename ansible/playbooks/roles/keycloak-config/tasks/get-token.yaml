@@ -8,9 +8,16 @@
   until: kc_admin_pass_raw.rc == 0 and kc_admin_pass_raw.stdout | length > 0
   changed_when: false
 
+- name: Read Keycloak admin username
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n keycloak get secret keycloak-initial-admin -o jsonpath={{ '{.data.username}' }}
+  register: kc_admin_user_raw
+  changed_when: false
+  failed_when: false
+
 - name: Set Keycloak admin facts
   ansible.builtin.set_fact:
-    keycloak_admin_user: temp-admin
+    keycloak_admin_user: "{{ (kc_admin_user_raw.stdout | b64decode) if (kc_admin_user_raw.stdout | default('') | length > 0) else 'temp-admin' }}"
     keycloak_admin_password: "{{ kc_admin_pass_raw.stdout | b64decode }}"
 
 - name: Wait for Keycloak master realm
