@@ -1,4 +1,7 @@
 ---
+- name: Refresh Keycloak admin token
+  ansible.builtin.include_tasks: get-token.yaml
+
 - name: Check trustify realm
   ansible.builtin.uri:
     url: "https://{{ keycloak_hostname }}/admin/realms/{{ keycloak_trustify_realm }}"
