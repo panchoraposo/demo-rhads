@@ -55,8 +55,7 @@ spec:
         maas_api_key:
           title: MaaS API key (also used in Dev Spaces)
           type: string
-          default: ""
-          ui:widget: password
+          ui:field: Secret
           description: From OpenShift AI → Gen AI studio → API keys. You can leave this empty and set MAAS_API_KEY in .env inside Dev Spaces.
     - title: Image registry
       required: [image_registry]
@@ -111,7 +110,7 @@ spec:
           port: 8080
           maas_base_url: ${{ parameters.maas_base_url }}
           maas_model: ${{ parameters.maas_model }}
-          maas_api_key: ${{ parameters.maas_api_key or "" }}
+          maas_api_key: ${{ secrets.maas_api_key }}
         targetPath: ./${{ parameters.gitlab_group }}-${{ parameters.component_id }}
     - id: publish
       name: Publish source to GitLab
@@ -155,7 +154,7 @@ spec:
           build_language: maven
           maas_base_url: ${{ parameters.maas_base_url }}
           maas_model: ${{ parameters.maas_model }}
-          maas_api_key: ${{ parameters.maas_api_key or "" }}
+          maas_api_key: ${{ secrets.maas_api_key }}
         targetPath: ./${{ parameters.owner }}-${{ parameters.component_id }}-gitops
     - id: publish-gitops
       name: Publish GitOps repository
