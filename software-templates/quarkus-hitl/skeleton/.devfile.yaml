@@ -12,7 +12,9 @@ components:
     container:
       image: registry.redhat.io/devspaces/udi-rhel9:latest
       memoryLimit: 8Gi
-      memoryRequest: 2Gi
+      memoryRequest: 4Gi
+      cpuLimit: "4"
+      cpuRequest: "2"
       mountSources: true
       endpoints:
         - name: fleet-ui

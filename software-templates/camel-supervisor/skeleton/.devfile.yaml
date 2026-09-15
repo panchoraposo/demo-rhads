@@ -12,11 +12,15 @@ components:
     container:
       image: registry.redhat.io/devspaces/udi-rhel9:latest
       memoryLimit: 8Gi
-      memoryRequest: 2Gi
+      memoryRequest: 4Gi
+      cpuLimit: "4"
+      cpuRequest: "2"
       mountSources: true
       command: ["sleep", "infinity"]
       endpoints:
-        - name: fleet-ui
+        # Endpoint names become Services in <user>-devspaces. Keep them unique
+        # vs quarkus-hitl (fleet-ui) or routing stays "Preparing services".
+        - name: camel-ui
           targetPort: 8080
           exposure: public
           protocol: https
@@ -25,7 +29,7 @@ components:
             discoverable: "true"
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
-        - name: camel-dev-console
+        - name: camel-devui
           targetPort: 8080
           exposure: public
           protocol: https
@@ -129,6 +133,5 @@ commands:
       component: tools
       commandLine: ./mvnw -s .mvn/settings.xml -DskipTests package
       workingDir: ${PROJECT_SOURCE}
-events:
-  postStart:
-    - install-camel
+# No postStart: JBang/Camel install blocks the IDE. Palette → Install JBang + Camel CLI
+# (or run-maas.sh calls ensure_camel_cli).

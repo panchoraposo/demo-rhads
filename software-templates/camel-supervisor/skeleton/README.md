@@ -6,10 +6,10 @@ Miles of Smiles **step 04** from [demo-camel-agentic](https://github.com/panchor
 
 ## Inner loop (Dev Spaces + MaaS + Kaoto)
 
-1. Catalog → **OpenShift Dev Spaces (VS Code)**. First start installs JBang + Camel CLI (`postStart`).
+1. Catalog → **OpenShift Dev Spaces (VS Code)**. When the IDE is up, command palette → **Install JBang + Camel CLI** (once per PVC).
 2. Command palette → **Write .env for Red Hat MaaS** if `MAAS_API_KEY` is empty.
 3. Command palette → **Camel JBang + MaaS (fleet UI on 8080)**.
-4. Open **PORTS → fleet-ui**. Open `integrations/03-workflow.camel.yaml` with **Kaoto** (right-click or command palette).
+4. Open **PORTS → camel-ui**. Open `integrations/03-workflow.camel.yaml` with **Kaoto** (right-click or command palette).
 5. Return Civic `#7` (`RENTED`) with:
 
 ```text

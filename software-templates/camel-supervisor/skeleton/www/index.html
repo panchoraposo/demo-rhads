@@ -7,7 +7,7 @@
     <script>
     (function () {
       // Dev Spaces Simple Browser: /admin/<workspace>/8080/. Cluster Route and
-      // PORTS → fleet-ui serve at /, so APP_BASE stays empty (same APIs).
+      // PORTS → camel-ui serve at /, so APP_BASE stays empty (same APIs).
       var m = location.pathname.match(/^(\/admin\/[^/]+\/\d{4})(?:\/|$)/);
       window.APP_BASE = m ? m[1] : '';
       window.apiUrl = function (path) {

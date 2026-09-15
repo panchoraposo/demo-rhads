@@ -20,7 +20,7 @@ export AI_MODEL="${AI_MODEL:-llama3.2:3b}"
 PROPS_FILE="application-local.properties"
 
 echo "Ollama model: ${AI_MODEL}"
-echo "UI:           fleet-ui on port 8080"
+echo "UI:           camel-ui on port 8080"
 echo
 
 camel_jbang_run "${ROOT}"

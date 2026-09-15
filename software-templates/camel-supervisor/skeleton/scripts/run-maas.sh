@@ -25,7 +25,7 @@ PROPS_FILE="application-maas.properties"
 
 echo "MaaS model: ${AI_MODEL}"
 echo "MaaS URL:   ${AI_BASE_URL}"
-echo "UI:         fleet-ui on port 8080 (PORTS → fleet-ui)"
+echo "UI:         camel-ui on port 8080 (PORTS → camel-ui)"
 echo "Kaoto:      open integrations/03-workflow.camel.yaml"
 echo
 
