@@ -1,6 +1,7 @@
 replicaCount: 1
-# Topology icon in the OpenShift Developer perspective.
+# Topology icon in the OpenShift Developer perspective and RHDH Topology.
 runtime: camel
+runtimeIconUrl: "https://camel.apache.org/_/img/logo-d-a567cee6fa.svg"
 # In-memory fleet: Recreate on each new image so Civic #7 is RENTED again.
 
 image:

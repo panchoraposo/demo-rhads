@@ -24,3 +24,6 @@ cluster:
 build:
   language: maven   # maven | npm | none
   cacheSize: 16Gi
+
+# Topology icon written into GitOps values-<env>.yaml (camel | quarkus | nodejs).
+appRuntime: ""

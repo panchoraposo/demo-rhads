@@ -70,6 +70,7 @@ spec:
         - { name: IMAGE_TAG, value: $(params.image-tag) }
         - { name: OVERLAY, value: $(params.overlay) }
         - { name: COMPONENT, value: $(params.component-id) }
+        - { name: RUNTIME, value: {{ .Values.appRuntime | default "camel" | quote }} }
       workspaces:
         - { name: source, workspace: source-folder, subPath: source }
 

@@ -31,6 +31,8 @@ spec:
     maxNumberOfWorkspacesPerUser: 5
     persistUserHome:
       enabled: true
+    nodeSelector:
+      rhads.demo/workload: apps
     storage:
       pvcStrategy: per-user
     defaultNamespace:

@@ -18,6 +18,7 @@ spec:
       spec:
         pipelineRef:
           name: {{ include "rhads-build.name" . }}-build
+        ttlSecondsAfterFinished: 14400
         # Tekton 1.16+/Pipelines 1.23 dropped spec.serviceAccountName and spec.podTemplate
         # on PipelineRun. emptyDir workspaces are per-TaskRun, so source must be a PVC.
         taskRunTemplate:
@@ -104,6 +105,7 @@ spec:
       spec:
         pipelineRef:
           name: {{ include "rhads-build.name" . }}-promote
+        ttlSecondsAfterFinished: 14400
         taskRunTemplate:
           serviceAccountName: pipeline
           podTemplate:
@@ -171,6 +173,7 @@ spec:
       spec:
         pipelineRef:
           name: {{ include "rhads-build.name" . }}-promote
+        ttlSecondsAfterFinished: 14400
         taskRunTemplate:
           serviceAccountName: pipeline
           podTemplate:

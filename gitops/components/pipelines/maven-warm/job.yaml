@@ -105,6 +105,15 @@ spec:
               curl -sf "${AUTH[@]}" --upload-file /m2/m2-seed.tar.gz "${SEED_URL}"
               curl -sfI "${SEED_URL}" | head -8
               echo "PASS: ${SEED_URL}"
+              SYFT_TGZ=/tmp/syft_1.27.1_linux_amd64.tar.gz
+              SYFT_URL="${NEXUS}/repository/raw-hosted/rhads/syft_1.27.1_linux_amd64.tar.gz"
+              if curl -fsSL --retry 2 --max-time 90 -o "${SYFT_TGZ}" \
+                https://github.com/anchore/syft/releases/download/v1.27.1/syft_1.27.1_linux_amd64.tar.gz; then
+                curl -sf "${AUTH[@]}" --upload-file "${SYFT_TGZ}" "${SYFT_URL}"
+                echo "PASS: ${SYFT_URL}"
+              else
+                echo "WARN: could not cache Syft on Nexus; generate-sbom will try GitHub"
+              fi
       volumes:
         - name: m2
           persistentVolumeClaim:

@@ -4,6 +4,11 @@ metadata:
   name: {{ include "quarkus-template.name" . }}
   labels:
     {{- include "quarkus-template.labels" . | nindent 4 }}
+  annotations:
+    app.openshift.io/runtime: {{ .Values.runtime | default "camel" | quote }}
+    {{- if .Values.runtimeIconUrl }}
+    janus-idp.io/icon-url: {{ .Values.runtimeIconUrl | quote }}
+    {{- end }}
 spec:
   strategy:
     type: Recreate
@@ -17,6 +22,10 @@ spec:
     metadata:
       annotations:
         rhads.demo/image-tag: {{ .Values.image.tag | default "unknown" | quote }}
+        app.openshift.io/runtime: {{ .Values.runtime | default "camel" | quote }}
+        {{- if .Values.runtimeIconUrl }}
+        janus-idp.io/icon-url: {{ .Values.runtimeIconUrl | quote }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -27,6 +36,13 @@ spec:
     spec:
       serviceAccountName: {{ include "quarkus-template.serviceAccountName" . }}
       terminationGracePeriodSeconds: 90
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -45,6 +61,16 @@ spec:
               value: "GET,HEAD,POST,PUT,DELETE,PATCH,OPTIONS"
             - name: JAVA_TOOL_OPTIONS
               value: "-Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8"
+            - name: CAMEL_COMPONENT_OPENAI_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quarkus-template.name" . }}-maas
+                  key: MAAS_BASE_URL
+            - name: CAMEL_COMPONENT_OPENAI_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quarkus-template.name" . }}-maas
+                  key: MAAS_MODEL
           envFrom:
             - secretRef:
                 name: {{ include "quarkus-template.name" . }}-maas

@@ -12,6 +12,10 @@ spec:
     exposure:
       route:
         enabled: true
+    # Dedicated workers only: control-planes also have the worker label, and RBD
+    # on some nodes leaves a stale Postgres lock after reboot.
+    nodeSelector:
+      kubernetes.io/hostname: worker-cluster-bd774-3
     resources:
       requests:
         cpu: 500m
@@ -20,6 +24,8 @@ spec:
         cpu: "2"
         memory: 4Gi
     db:
+      nodeSelector:
+        kubernetes.io/hostname: worker-cluster-bd774-1
       resources:
         requests:
           cpu: 500m
@@ -29,6 +35,8 @@ spec:
           memory: 2Gi
   scanner:
     analyzer:
+      nodeSelector:
+        kubernetes.io/hostname: worker-cluster-bd774-1
       scaling:
         autoScaling: Disabled
         replicas: 1

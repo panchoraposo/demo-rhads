@@ -23,6 +23,7 @@ spec:
         build:
           language: ${{ values.build_language }}
           cacheSize: 16Gi
+        appRuntime: camel
         git:
           host: ${{ values.repository_host }}
           repo: ${{ values.source_repository }}
@@ -70,6 +71,8 @@ spec:
       values: |
         nameOverride: ${{ values.component_id }}
         user: ${{ values.owner }}
+        runtime: camel
+        runtimeIconUrl: "https://camel.apache.org/_/img/logo-d-a567cee6fa.svg"
         service:
           port: ${{ values.port }}
         image:
@@ -116,6 +119,8 @@ spec:
       values: |
         nameOverride: ${{ values.component_id }}
         user: ${{ values.owner }}
+        runtime: camel
+        runtimeIconUrl: "https://camel.apache.org/_/img/logo-d-a567cee6fa.svg"
         service:
           port: ${{ values.port }}
         image:
@@ -159,6 +164,8 @@ spec:
       values: |
         nameOverride: ${{ values.component_id }}
         user: ${{ values.owner }}
+        runtime: camel
+        runtimeIconUrl: "https://camel.apache.org/_/img/logo-d-a567cee6fa.svg"
         service:
           port: ${{ values.port }}
         image:

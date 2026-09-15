@@ -21,11 +21,15 @@ spec:
       description: Environment overlay directory (dev, staging, prod)
     - name: COMPONENT
       type: string
+    - name: RUNTIME
+      type: string
+      default: ""
+      description: OpenShift / Developer Hub Topology runtime icon (camel, quarkus, nodejs)
   workspaces:
     - name: source
   steps:
     - name: bump-tag
-      image: registry.access.redhat.com/ubi9/ubi:9.6
+      image: registry.redhat.io/openshift4/ose-cli@sha256:69762925e16053d77685ff3a08b3b45dd2bfa5d68277851bc6969b368bbd0cb9
       env:
         - name: GITOPS_REPO
           value: $(params.GITOPS_REPO)
@@ -39,6 +43,10 @@ spec:
           value: $(params.OVERLAY)
         - name: COMPONENT
           value: $(params.COMPONENT)
+        - name: RUNTIME
+          value: $(params.RUNTIME)
+        - name: HOME
+          value: /tekton/home
         - name: GIT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -59,8 +67,8 @@ spec:
         echo "GitOps:  ${GITOPS_REPO}"
         echo "============================================================"
         if ! command -v git >/dev/null 2>&1; then
-          echo "Installing git-core (UBI does not ship git)..."
-          dnf -y install git-core >/dev/null
+          echo "Installing git-core..."
+          microdnf -y install git-core >/dev/null || yum -y install git-core >/dev/null
         fi
         echo "tools: git=$(git --version | awk '{print $3}')"
         git config --global user.email "pipelines@rhads.demo"
@@ -86,13 +94,16 @@ spec:
           FILE="${DEST}/helm/app/values-${OVERLAY}.yaml"
         fi
         echo "--- writing ${FILE} ---"
-        cat > "${FILE}" <<EOF
-        image:
-          tag: "${IMAGE_TAG}"
-          digestRef: "${IMAGE}"
-        environment: "${OVERLAY}"
-        replicaCount: 1
-        EOF
+        {
+          echo "image:"
+          echo "  tag: \"${IMAGE_TAG}\""
+          echo "  digestRef: \"${IMAGE}\""
+          echo "environment: \"${OVERLAY}\""
+          echo "replicaCount: 1"
+          if [ -n "${RUNTIME:-}" ]; then
+            echo "runtime: ${RUNTIME}"
+          fi
+        } > "${FILE}"
         cat "${FILE}"
         cd "${DEST}"
         git add -A

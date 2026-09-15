@@ -2,3 +2,4 @@ image:
   tag: pending-promotion
 environment: dev
 replicaCount: 0
+runtime: camel

@@ -24,3 +24,5 @@ cluster:
 build:
   language: maven   # maven | npm | none
   cacheSize: 16Gi
+
+appRuntime: quarkus

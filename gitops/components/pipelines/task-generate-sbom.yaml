@@ -54,9 +54,22 @@ spec:
         echo "Image: ${IMAGE}"
         echo "============================================================"
         if ! command -v syft >/dev/null 2>&1; then
-          echo "Installing Syft..."
-          curl -fsSL -o /tmp/syft.tgz \
+          echo "Installing Syft (Nexus first; GitHub is a fallback with a hard timeout)..."
+          ok=0
+          for url in \
+            http://nexus.nexus.svc:8081/repository/raw-hosted/rhads/syft_1.27.1_linux_amd64.tar.gz \
             https://github.com/anchore/syft/releases/download/v1.27.1/syft_1.27.1_linux_amd64.tar.gz
+          do
+            echo "GET ${url}"
+            if curl -fsSL --retry 2 --max-time 45 -o /tmp/syft.tgz "${url}"; then
+              ok=1
+              break
+            fi
+          done
+          if [ "${ok}" -ne 1 ]; then
+            echo "FAIL: could not download Syft from Nexus or GitHub" >&2
+            exit 1
+          fi
           tar -xzf /tmp/syft.tgz -C /usr/local/bin syft
         fi
         mkdir -p "${HOME}/.docker"

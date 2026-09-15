@@ -78,11 +78,18 @@ spec:
         EOF
         echo
         echo "--- oc start-build --from-dir (binary input = compiled sources) ---"
-        oc start-build "${BC}" --from-dir="${SRC}" --follow --wait
-        BUILD="$(oc get build -l buildconfig="${BC}" --sort-by=.metadata.creationTimestamp -o name | tail -1)"
+        BUILD="$(oc start-build "${BC}" --from-dir="${SRC}" -o name)"
         echo "Build object: ${BUILD}"
+        oc logs -f "${BUILD}" || true
+        oc wait --for=jsonpath='{.status.phase}'=Complete "${BUILD}" --timeout=30m \
+          || oc wait --for=jsonpath='{.status.phase}'=Failed "${BUILD}" --timeout=15s || true
         oc get "${BUILD}" -o jsonpath='{.status.phase}{"\n"}{.status.output.to.imageDigest}{"\n"}{.status.outputDockerImageReference}{"\n"}'
+        PHASE="$(oc get "${BUILD}" -o jsonpath='{.status.phase}')"
         DIGEST="$(oc get "${BUILD}" -o jsonpath='{.status.output.to.imageDigest}')"
+        if [ "${PHASE}" != "Complete" ] || [ -z "${DIGEST}" ]; then
+          echo "FAIL: OpenShift Build ${BUILD} phase=${PHASE} digest='${DIGEST}'" >&2
+          exit 1
+        fi
         echo -n "${IMAGE}" > "$(results.IMAGE_URL.path)"
         echo -n "${DIGEST}" > "$(results.IMAGE_DIGEST.path)"
         echo

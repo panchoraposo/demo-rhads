@@ -154,7 +154,8 @@ spec:
         - { name: dockerconfig, workspace: docker-config }
 
     - name: acs-scan
-      runAfter: [attest-sbom]
+      timeout: "20m"
+      runAfter: [openshift-build]
       taskRef:
         resolver: cluster
         params:
@@ -190,7 +191,8 @@ spec:
         - { name: source, workspace: source-folder, subPath: source }
 
     - name: conforma-dev
-      runAfter: [sign-image, acs-check, upload-tpa]
+      timeout: "15m"
+      runAfter: [sign-image, acs-check]
       taskRef:
         resolver: cluster
         params:

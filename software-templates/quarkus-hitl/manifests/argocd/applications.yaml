@@ -23,6 +23,7 @@ spec:
         build:
           language: ${{ values.build_language }}
           cacheSize: 16Gi
+        appRuntime: quarkus
         git:
           host: ${{ values.repository_host }}
           repo: ${{ values.source_repository }}
@@ -70,6 +71,7 @@ spec:
       values: |
         nameOverride: ${{ values.component_id }}
         user: ${{ values.owner }}
+        runtime: quarkus
         service:
           port: ${{ values.port }}
         image:
@@ -116,6 +118,7 @@ spec:
       values: |
         nameOverride: ${{ values.component_id }}
         user: ${{ values.owner }}
+        runtime: quarkus
         service:
           port: ${{ values.port }}
         image:
@@ -159,6 +162,7 @@ spec:
       values: |
         nameOverride: ${{ values.component_id }}
         user: ${{ values.owner }}
+        runtime: quarkus
         service:
           port: ${{ values.port }}
         image:
