@@ -18,6 +18,12 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "patch", "update"]
+  - apiGroups: ["route.openshift.io"]
+    resources: ["routes"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -96,3 +102,24 @@ spec:
                 argocd.argoproj.io/compare-options=IgnoreExtraneous --overwrite
               oc -n trusted-profile-analyzer rollout restart deploy/rhda-backend || true
               echo "PASS: RHDA backend authenticates to TPA via realm trustify"
+              # Operator creates Ingress/server; OpenShift then mints route/server-*.
+              # Default HAProxy timeout is 30s; fetch_sbom_summary after a large
+              # ingest can exceed that and the SPOG UI shows a generic Error.
+              for i in $(seq 1 30); do
+                if oc -n trusted-profile-analyzer get ingress server >/dev/null 2>&1; then
+                  break
+                fi
+                sleep 5
+              done
+              oc -n trusted-profile-analyzer annotate ingress server \
+                --overwrite \
+                haproxy.router.openshift.io/timeout=90s \
+                argocd.argoproj.io/compare-options=IgnoreExtraneous || true
+              ROUTE="$(oc -n trusted-profile-analyzer get route -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | awk '/^server/{print; exit}')"
+              if [ -n "${ROUTE}" ]; then
+                oc -n trusted-profile-analyzer annotate route "${ROUTE}" \
+                  --overwrite \
+                  haproxy.router.openshift.io/timeout=90s \
+                  argocd.argoproj.io/compare-options=IgnoreExtraneous || true
+              fi
+              echo "PASS: TPA server timeout=90s (ingress/server route=${ROUTE:-none})"

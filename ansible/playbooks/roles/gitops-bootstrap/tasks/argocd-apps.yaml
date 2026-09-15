@@ -11,6 +11,8 @@
       - { name: rhacs, path: gitops/components/rhacs, ns: stackrox }
       - { name: pipelines, path: gitops/components/pipelines, ns: rhads-ci }
       - { name: nexus, path: gitops/components/nexus, ns: nexus }
+      - { name: vault, path: gitops/components/vault, ns: vault }
+      - { name: external-secrets, path: gitops/components/external-secrets, ns: external-secrets }
       - { name: devspaces, path: gitops/components/devspaces, ns: openshift-devspaces }
       - { name: quay-ns, path: gitops/components/quay, ns: quay }
 

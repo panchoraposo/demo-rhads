@@ -8,16 +8,21 @@ metadata:
 data:
   # Documented collections: https://conforma.dev/docs/policy/release_policy.html
   # Config sources: github.com/conforma/config//{redhat,redhat-no-hermetic,slsa3}
+  # git_commit_signed.rego is appended at runtime by rhads-conforma-verify with
+  # ruleData.source_git_signed from gitsign (RHTAS Fulcio + Rekor + TUF).
   policy.yaml: |
     ---
-    name: Red Hat + SLSA3
+    name: Red Hat + SLSA3 + signed source
     description: >
       Official Conforma collections @redhat and @slsa3
       (https://conforma.dev/docs/policy/release_policy.html,
-      github.com/conforma/config//{redhat,slsa3}). Hermetic/prefetch
+      github.com/conforma/config//{redhat,slsa3}), plus RHADS
+      rhads_source.git_commit_signed (gitsign / RHTAS). Hermetic/prefetch
       excludes match github.com/conforma/config//redhat-no-hermetic
       because this demo builds with OpenShift Builds and Nexus, not
-      Konflux hermetic builds.
+      Konflux hermetic builds. Unsigned scaffold commits may land in
+      dev (STRICT=false) so TPA gets the first SBOM; staging/prod
+      STRICT promotion is denied until the tagged commit is signed.
     sources:
       - name: Default
         policy:
@@ -50,3 +55,39 @@ data:
         ruleData:
           allowed_builder_ids:
             - https://tekton.dev/chains/v2
+  git_commit_signed.rego: |
+    package policy.release.rhads_source
+
+    import rego.v1
+
+    signed if {
+      object.get(data.rule_data, "source_git_signed", false) == true
+    }
+
+    signed if {
+      object.get(data.rule_data, "source_git_signed", "") == "true"
+    }
+
+    revision := object.get(data.rule_data, "source_git_revision", "unknown")
+
+    # METADATA
+    # title: Source git commit is Sigstore-signed
+    # description: >
+    #   The git commit that produced this image must be signed with gitsign
+    #   using the cluster RHTAS Fulcio and Rekor. Unsigned scaffold commits
+    #   may land in dev so TPA receives the first SBOM; they cannot be
+    #   promoted to staging or production.
+    # custom:
+    #   short_name: git_commit_signed
+    #   failure_msg: Source git commit %s is not Sigstore-signed (gitsign / RHTAS Fulcio + Rekor). Sign from Dev Spaces, push, and tag the signed commit.
+    #   collections:
+    #     - rhads
+    #   effective_on: "2024-01-01T00:00:00Z"
+    deny contains result if {
+      not signed
+      result := {
+        "code": "rhads_source.git_commit_signed",
+        "msg": sprintf("Source git commit %s is not Sigstore-signed (gitsign / RHTAS Fulcio + Rekor). Unsigned scaffold commits cannot be promoted. Sign from Dev Spaces, push, and tag the signed commit.", [revision]),
+        "term": revision,
+      }
+    }

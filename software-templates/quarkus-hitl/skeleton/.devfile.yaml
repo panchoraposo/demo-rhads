@@ -12,10 +12,24 @@ components:
     container:
       image: registry.redhat.io/devspaces/udi-rhel9:latest
       memoryLimit: 8Gi
-      memoryRequest: 4Gi
+      memoryRequest: 1Gi
       cpuLimit: "4"
-      cpuRequest: "2"
+      cpuRequest: "250m"
       mountSources: true
+      command:
+        - /bin/bash
+        - -c
+        - |
+          mkdir -p /home/user/.m2
+          (
+            if [ ! -f /home/user/.m2/.rhads-seeded ]; then
+              curl -fsS --retry 8 --max-time 180 \
+                http://nexus.nexus.svc:8081/repository/raw-hosted/rhads/m2-seed.tar.gz \
+                | tar -xz -C /home/user/.m2 \
+                && touch /home/user/.m2/.rhads-seeded
+            fi
+          ) >/tmp/rhads-m2-seed.log 2>&1 &
+          exec sleep infinity
       endpoints:
         - name: fleet-ui
           targetPort: 8080
@@ -23,25 +37,25 @@ components:
           protocol: https
           path: /
           attributes:
-            discoverable: "true"
+            discoverable: "false"
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
         - name: quarkus-dev-ui
           targetPort: 8080
-          exposure: public
+          exposure: internal
           protocol: https
           path: /q/dev-ui
           attributes:
-            discoverable: "true"
+            discoverable: "false"
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
         - name: swagger-ui
           targetPort: 8080
-          exposure: public
+          exposure: internal
           protocol: https
           path: /q/swagger-ui
           attributes:
-            discoverable: "true"
+            discoverable: "false"
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
       env:

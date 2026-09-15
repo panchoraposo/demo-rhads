@@ -152,6 +152,11 @@ tpa_db_password: "tpa-demo-password"
 acs_namespace: stackrox
 acs_ci_namespace: rhads-ci
 
+# --- Vault + External Secrets ---
+vault_namespace: vault
+eso_operator_namespace: external-secrets-operator
+eso_operand_namespace: external-secrets
+
 # --- Pipelines / environments ---
 pipelines_namespace: rhads-ci
 conforma_policy_name: rhads-slsa

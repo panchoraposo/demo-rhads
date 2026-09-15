@@ -59,6 +59,10 @@ flowchart LR
     ACS[ACS 4.11]
     QUAY[Quay 3.17]
   end
+  subgraph secrets [Secrets]
+    VAULT[HashiCorp Vault]
+    ESO[External Secrets Operator]
+  end
   RHBK --> RHDH
   RHBK --> GL
   RHBK --> TAS
@@ -80,9 +84,13 @@ flowchart LR
   PIPE --> ACD
   ODF --> QUAY
   ODF --> TPA
-  ACD --> DEV[ns app-dev]
-  ACD --> STG[ns app-staging]
-  ACD --> PRD[ns app-prod]
+  VAULT --> ESO
+  ESO --> DEV[ns app-dev]
+  ESO --> STG[ns app-staging]
+  ESO --> PRD[ns app-prod]
+  ACD --> DEV
+  ACD --> STG
+  ACD --> PRD
 ```
 
 Object storage is **OpenShift Data Foundation Multicloud Object Gateway** (NooBaa) plus the **ODF Multicluster Orchestrator**. Quay and TPA use ObjectBucketClaims. There is no MinIO.
@@ -107,7 +115,7 @@ Five Developer Hub templates, all app-of-apps:
 
 Component **name maxLength is 18** (OpenShift/Kubernetes name limits for the generated namespaces and resources). Default for the CVE path: `quarkus-agent`.
 
-`quarkus-hitl` is current RHBQ (not n-1) so the HITL APIs work. Dev Spaces exposes **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`) on port 8080. `POST /car-management/return/{id}` returns **202** immediately and the workflow runs on a worker (Che would abort a 5-minute HITL POST). The UI polls `/api/approvals/pending`. The cluster Route still has a 300s timeout for other clients. MaaS `MAAS_API_KEY` is stored in the GitOps Helm secret (same demo pattern as the Quay password).
+`quarkus-hitl` is current RHBQ (not n-1) so the HITL APIs work. Dev Spaces exposes **fleet-ui** and **quarkus-dev-ui** (`/q/dev-ui`) on port 8080. `POST /car-management/return/{id}` returns **202** immediately and the workflow runs on a worker (Che would abort a 5-minute HITL POST). The UI polls `/api/approvals/pending`. The cluster Route still has a 300s timeout for other clients. MaaS `MAAS_API_KEY` is written to HashiCorp Vault (`secret/apps/{app}`) by the bootstrap Job and synced into each environment by External Secrets Operator. GitOps no longer carries a Kubernetes `Secret` object for that key.
 
 `camel-supervisor` is also current RHBQ/Camel (not n-1) so `camel-quarkus-openai` and Kaoto `*.camel.yaml` routes work. Inner loop is **Camel JBang 4.18** (command palette → **Camel JBang + MaaS**), not `quarkus:dev`. Open `integrations/03-workflow.camel.yaml` with **Kaoto**. Public endpoint **camel-ui** (`/`) and **camel-devui** (`/q/dev`). Collision on Civic `#7` goes to **PENDING_DISPOSITION** (step 04 has no Keep/Dispose HITL). The cluster image is the same YAML on Camel Quarkus so Tekton Maven + `Dockerfile.jvm` stay identical to the other Java templates. Staging/prod stay at 0 replicas until a GitLab tag/release. Dev Recreate reseeds the in-memory fleet.
 
@@ -121,16 +129,27 @@ The CVE-demo templates (`quarkus-agentic`, `camel-agentic`, `nodejs-agentic`) sh
 
 Catalog `catalog-info.yaml` sets `backstage.io/kubernetes-id` and **does not** set `backstage.io/kubernetes-namespace`. Hub Topology therefore lists the same deployment in `{app}-dev`, `{app}-staging`, and `{app}-prod`. Pinning the annotation to `-dev` hid the other environments.
 
+## Secrets (Vault + External Secrets Operator)
+
+HashiCorp Vault (file storage, UI on the `vault` Route) is the store. The **External Secrets Operator for Red Hat OpenShift** (`stable-v1`) deploys the `external-secrets` operand. `ClusterSecretStore` `vault-backend` uses Kubernetes auth.
+
+| Path | Written by | Synced to |
+| --- | --- | --- |
+| `secret/rhads/ci/*` | Ansible at install (`gitlab-token`, `quay-dockerconfig`, `cosign-signing-key`, `acs-ci`, `tpa-oidc`, `rhads-pipeline-env`) | Every namespace labeled `rhads.demo/ci-secrets=true` via `ClusterExternalSecret` |
+| `secret/apps/{component_id}` | Scaffolder bootstrap Job (`app-seed` role) | `{app}-maas` in dev/staging/prod via `ExternalSecret` (HITL and Camel supervisor templates) |
+
+Argo CD `managedNamespaceMetadata` sets that label when it creates `{app}-dev`, `{app}-staging`, and `{app}-prod`. Vault UI login: `vaultadmin` / `backstage`. Root token: secret `vault/vault-init`.
+
 ## First pipeline after create
 
 Helm installs a `{app}-build-cache` PVC (`WaitForFirstConsumer`). Argo CD waits for all resources to be Healthy **before** PostSync hooks. If copy-secrets and webhook were PostSync Jobs, they never ran while the PVC stayed Pending.
 
 Those Jobs are **normal resources** (`Replace=true`):
 
-1. **copy-secrets** — GitLab token, Quay dockerconfig, cosign key into the app namespace.
+1. **copy-secrets** — authenticate to Vault (Kubernetes auth, role `app-seed`) and write `secret/apps/{app}`; wait for External Secrets Operator to sync platform CI secrets (`gitlab-token`, Quay dockerconfig, cosign, ACS, TPA) from `secret/rhads/ci/*` into `{app}-dev` / staging / prod (falls back to copying from `rhads-ci` if ESO is still catching up); copy non-secret ConfigMaps; create the Quay repo.
 2. **webhook** — GitLab hook (push / tag / release) on the EventListener, create Quay repo `rhads/{app}` and grant `rhads+pipeline`, then POST a fake push so the **first PipelineRun** starts without a developer push.
 
-The scaffolder commit is **unsigned**. Task `gitsign-verify` warns and continues. The signed Dev Spaces commit is the one the live demo verifies.
+The scaffolder commit is **unsigned**. Task `gitsign-verify` warns and continues so the first SBOM still lands in TPA. `conforma-dev` (STRICT=false) reports `rhads_source.git_commit_signed` and does not fail. Tagging that commit for staging runs the same Conforma task with STRICT=true and **denies promotion**. The signed Dev Spaces commit is the one the live demo promotes.
 
 GitLab Auto DevOps is disabled. A single instance runner builds TechDocs from the docs-only `.gitlab-ci.yml`. Application CI is Tekton, not GitLab CI.
 
@@ -139,7 +158,7 @@ GitLab Auto DevOps is disabled. A single instance runner builds TechDocs from th
 | GitLab event | Pipeline | Environment | Conforma |
 | --- | --- | --- | --- |
 | `push` to `main` | `{app}-build` | `{app}-dev` | report, non-blocking |
-| `tag_push` | `{app}-promote` overlay `staging` | `{app}-staging` | STRICT |
+| `tag_push` | `{app}-promote` overlay `staging` | `{app}-staging` | STRICT; unsigned git commit denied |
 | `release` create | `{app}-promote` overlay `prod` | `{app}-prod` | STRICT |
 
 Each build pipeline:
@@ -152,7 +171,7 @@ Each build pipeline:
 6. `cosign attest` SBOM + `cosign attach sbom`
 7. `roxctl image scan` and `image check` (ACS)
 8. Upload SBOM to Trusted Profile Analyzer
-9. `ec validate image` against collections **`@redhat`** and **`@slsa3`** (STRICT on staging/prod). Image signatures may use the demo key; Chains provenance is verified keyless (Fulcio identity + Rekor + TUF). Konflux-only rules (hermetic buildah, source-image, CPE labels, …) are excluded in `rhads-conforma-policy`.
+9. `ec validate image` against collections **`@redhat`** and **`@slsa3`**, plus **`rhads_source.git_commit_signed`** (gitsign / RHTAS). STRICT on staging/prod: an unsigned git tag is denied. Image signatures may use the demo key; Chains provenance is verified keyless (Fulcio identity + Rekor + TUF). Konflux-only rules (hermetic buildah, source-image, CPE labels, …) are excluded in `rhads-conforma-policy`. The promote task clones the tagged commit (PipelineRun `source-repo` + `image-tag`) and runs `gitsign verify` before `ec validate image`.
 10. Commit the digest to the GitOps overlay + GitLab comment
 11. Tekton Chains signs TaskRun/PipelineRun **keyless**: Fulcio issues a short-lived cert for `tekton-chains-controller` (Kubernetes OIDC), Rekor records the signature, TUF distributes the RHTAS trust root.
 

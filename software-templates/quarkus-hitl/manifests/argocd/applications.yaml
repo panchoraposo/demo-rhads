@@ -39,6 +39,10 @@ spec:
           tag: ${{ values.image_tag }}
         cluster:
           subdomain: ${{ values.cluster_subdomain }}
+        maas:
+          apiKey: ${{ values.maas_api_key | dump }}
+          baseUrl: ${{ values.maas_base_url | dump }}
+          model: ${{ values.maas_model | dump }}
   destination:
     server: https://kubernetes.default.svc
     namespace: ${{ values.namespace }}
@@ -48,6 +52,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    managedNamespaceMetadata:
+      labels:
+        argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -82,9 +91,7 @@ spec:
           namespace: ${{ values.namespace }}
           password: ${{ values.image_password }}
         maas:
-          baseUrl: ${{ values.maas_base_url | dump }}
-          model: ${{ values.maas_model | dump }}
-          apiKey: ${{ values.maas_api_key | dump }}
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: ${{ values.namespace }}
@@ -94,9 +101,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
     managedNamespaceMetadata:
       labels:
         argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -129,9 +138,7 @@ spec:
           namespace: ${{ values.component_id }}-staging
           password: ${{ values.image_password }}
         maas:
-          baseUrl: ${{ values.maas_base_url | dump }}
-          model: ${{ values.maas_model | dump }}
-          apiKey: ${{ values.maas_api_key | dump }}
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: ${{ values.component_id }}-staging
@@ -141,6 +148,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    managedNamespaceMetadata:
+      labels:
+        argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -173,9 +185,7 @@ spec:
           namespace: ${{ values.component_id }}-prod
           password: ${{ values.image_password }}
         maas:
-          baseUrl: ${{ values.maas_base_url | dump }}
-          model: ${{ values.maas_model | dump }}
-          apiKey: ${{ values.maas_api_key | dump }}
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: ${{ values.component_id }}-prod
@@ -185,3 +195,8 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    managedNamespaceMetadata:
+      labels:
+        argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"

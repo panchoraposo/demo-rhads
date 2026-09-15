@@ -26,3 +26,5 @@ build:
   cacheSize: 16Gi
 
 appRuntime: quarkus
+
+maas: {}

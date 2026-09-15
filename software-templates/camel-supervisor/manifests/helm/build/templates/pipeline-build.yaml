@@ -203,6 +203,9 @@ spec:
       params:
         - { name: IMAGE, value: "$(params.output-image):$(params.image-tag)" }
         - { name: REKOR_URL, value: https://rekor-server-trusted-artifact-signer.{{ .Values.cluster.subdomain }} }
+        - { name: FULCIO_URL, value: https://fulcio-server-trusted-artifact-signer.{{ .Values.cluster.subdomain }} }
+        - { name: SOURCE_REPO, value: $(params.source-repo) }
+        - { name: GIT_REVISION, value: $(params.image-tag) }
         - { name: STRICT, value: "false" }
         - { name: ENVIRONMENT, value: "dev" }
 

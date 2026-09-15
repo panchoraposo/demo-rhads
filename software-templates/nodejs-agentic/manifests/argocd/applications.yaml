@@ -47,6 +47,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    managedNamespaceMetadata:
+      labels:
+        argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -88,9 +93,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
     managedNamespaceMetadata:
       labels:
         argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -131,6 +138,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    managedNamespaceMetadata:
+      labels:
+        argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -171,3 +183,8 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    managedNamespaceMetadata:
+      labels:
+        argocd.argoproj.io/managed-by: ${{ values.gitops_namespace }}
+        rhads.demo/ci-secrets: "true"

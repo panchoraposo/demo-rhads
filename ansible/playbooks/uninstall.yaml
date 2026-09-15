@@ -49,6 +49,9 @@
           - stackrox
           - rhads-ci
           - nexus
+          - vault
+          - external-secrets
+          - external-secrets-operator
           - openshift-devspaces
           - dashboard
         uninstall_skip: "{{ (['keycloak'] if uninstall_sso_probe.status | default(0) == 200 else []) + (['openshift-storage'] if uninstall_external_odf.rc | default(1) == 0 else []) }}"

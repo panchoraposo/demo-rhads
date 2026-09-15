@@ -22,7 +22,7 @@ YAML not hot-reloaded from Kaoto until you restart Camel JBang.
 
 ## Cluster
 
-The first Tekton run publishes an image; GitOps **dev** Recreates the pod with MaaS env from the Helm secret. Staging/prod stay at 0 replicas until a GitLab tag/release.
+The first Tekton run publishes an image; GitOps **dev** Recreates the pod with MaaS env from Vault via External Secrets Operator. Staging/prod stay at 0 replicas until a GitLab tag/release.
 
 Fleet UI (dev): `https://${{values.component_id}}-${{values.component_id}}-dev.<apps-domain>/`
 

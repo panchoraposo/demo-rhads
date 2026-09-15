@@ -22,6 +22,15 @@
     namespace: "{{ gitops_namespace }}"
   register: argocd_route_res
 
+- name: Collect Vault route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: vault
+    namespace: vault
+  register: vault_route_res
+  failed_when: false
+
 - name: Collect ACS route
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
@@ -44,6 +53,7 @@
     dash_rekor_url: "https://rekor-search-ui-trusted-artifact-signer.{{ openshift_base_domain }}/"
     dash_fulcio_url: "https://fulcio-server-trusted-artifact-signer.{{ openshift_base_domain }}/"
     dash_nexus_url: "https://nexus-nexus.{{ openshift_base_domain }}/"
+    dash_vault_url: "https://{{ vault_route_res.resources[0].spec.host if (vault_route_res.resources | default([]) | length > 0) else ('vault-vault.' + openshift_base_domain) }}/"
     dash_kc_pass: "{{ (kc_secret_res.resources[0].data.password | b64decode) if (kc_secret_res.resources | length > 0) else '' }}"
     dash_argocd_pass: "{{ argocd_pass_cmd.stdout | default('') }}"
 
@@ -147,3 +157,4 @@
       - "TPA  {{ dash_tpa_url }}"
       - "Dev Spaces  {{ dash_devspaces_url }}"
       - "Nexus       {{ dash_nexus_url }}"
+      - "Vault       {{ dash_vault_url }}  (vaultadmin / {{ common_user_password }})"

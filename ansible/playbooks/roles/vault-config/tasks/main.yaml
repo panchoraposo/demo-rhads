@@ -1,0 +1,180 @@
+---
+- name: Wait for Vault pod
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n {{ vault_namespace }} rollout status deploy/vault --timeout=180s
+  register: wait_vault_rollout
+  retries: 20
+  delay: 15
+  until: wait_vault_rollout.rc == 0
+
+- name: Read existing Vault init secret
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: vault-init
+    namespace: "{{ vault_namespace }}"
+  register: vault_init_secret
+
+- name: Initialize and unseal Vault
+  ansible.builtin.shell: |
+    set -euo pipefail
+    ctx={{ oc_context }}
+    ns={{ vault_namespace }}
+    exec_vault() {
+      oc --context "$ctx" -n "$ns" exec deploy/vault -c vault -- env VAULT_ADDR=http://127.0.0.1:8200 "$@"
+    }
+    for i in $(seq 1 36); do
+      exec_vault vault status -format=json > /tmp/vault-status.json || true
+      if grep -q '"initialized"' /tmp/vault-status.json 2>/dev/null; then
+        break
+      fi
+      sleep 5
+    done
+    test -s /tmp/vault-status.json
+    initialized=$(python3 -c "import json; print(json.load(open('/tmp/vault-status.json')).get('initialized', False))")
+    sealed=$(python3 -c "import json; print(json.load(open('/tmp/vault-status.json')).get('sealed', True))")
+    ROOT=""
+    UNSEAL=""
+    if oc --context "$ctx" -n "$ns" get secret vault-init >/dev/null 2>&1; then
+      ROOT=$(oc --context "$ctx" -n "$ns" get secret vault-init -o jsonpath='{.data.root_token}' | base64 -d)
+      UNSEAL=$(oc --context "$ctx" -n "$ns" get secret vault-init -o jsonpath='{.data.unseal_key}' | base64 -d)
+    fi
+    if [ "$initialized" != "True" ]; then
+      exec_vault vault operator init -key-shares=1 -key-threshold=1 -format=json > /tmp/vault-init.json
+      ROOT=$(python3 -c "import json; print(json.load(open('/tmp/vault-init.json'))['root_token'])")
+      UNSEAL=$(python3 -c "import json; print(json.load(open('/tmp/vault-init.json'))['unseal_keys_b64'][0])")
+      oc --context "$ctx" -n "$ns" create secret generic vault-init \
+        --from-literal=root_token="$ROOT" \
+        --from-literal=unseal_key="$UNSEAL" \
+        --dry-run=client -o yaml | oc --context "$ctx" apply -f -
+      oc --context "$ctx" -n "$ns" rollout restart deploy/vault
+      oc --context "$ctx" -n "$ns" rollout status deploy/vault --timeout=180s
+    fi
+    if [ -z "$ROOT" ] || [ -z "$UNSEAL" ]; then
+      echo "FAIL: Vault init material is missing (secret vault/vault-init)" >&2
+      exit 1
+    fi
+    for i in $(seq 1 36); do
+      exec_vault env VAULT_TOKEN="$ROOT" vault operator unseal "$UNSEAL" >/dev/null || true
+      exec_vault vault status -format=json > /tmp/vault-status.json || true
+      if grep -q '"sealed":false' /tmp/vault-status.json; then
+        echo "Vault is unsealed"
+        exit 0
+      fi
+      sleep 5
+    done
+    echo "FAIL: Vault stayed sealed" >&2
+    exit 1
+  args:
+    executable: /bin/bash
+  no_log: true
+
+- name: Capture Vault root token
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n {{ vault_namespace }} get secret vault-init -o jsonpath={.data.root_token}
+  register: vault_root_b64
+  changed_when: false
+  no_log: true
+
+- name: Set Vault root token fact
+  ansible.builtin.set_fact:
+    vault_root_token: "{{ vault_root_b64.stdout | b64decode }}"
+  no_log: true
+
+- name: Configure Vault KV, policies and Kubernetes auth
+  ansible.builtin.shell: |
+    set -euo pipefail
+    ctx={{ oc_context }}
+    ns={{ vault_namespace }}
+    ROOT=$(oc --context "$ctx" -n "$ns" get secret vault-init -o jsonpath='{.data.root_token}' | base64 -d)
+    exec_vault() {
+      oc --context "$ctx" -n "$ns" exec deploy/vault -c vault -- env VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN="$ROOT" "$@"
+    }
+    exec_vault vault secrets enable -path=secret kv-v2 || true
+    exec_vault vault auth enable kubernetes || true
+    exec_vault vault write auth/kubernetes/config \
+      kubernetes_host=https://kubernetes.default.svc \
+      kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    cat <<'EOF' | oc --context "$ctx" -n "$ns" exec -i deploy/vault -c vault -- env VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN="$ROOT" vault policy write eso -
+    path "secret/data/rhads/*" {
+      capabilities = ["read"]
+    }
+    path "secret/metadata/rhads/*" {
+      capabilities = ["read", "list"]
+    }
+    path "secret/data/apps/*" {
+      capabilities = ["read"]
+    }
+    path "secret/metadata/apps/*" {
+      capabilities = ["read", "list"]
+    }
+    EOF
+    cat <<'EOF' | oc --context "$ctx" -n "$ns" exec -i deploy/vault -c vault -- env VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN="$ROOT" vault policy write app-seed -
+    path "secret/data/apps/*" {
+      capabilities = ["create", "update", "read"]
+    }
+    path "secret/metadata/apps/*" {
+      capabilities = ["create", "update", "read", "list"]
+    }
+    EOF
+    cat <<'EOF' | oc --context "$ctx" -n "$ns" exec -i deploy/vault -c vault -- env VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN="$ROOT" vault policy write demo-admin -
+    path "secret/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+    path "sys/mounts" {
+      capabilities = ["read"]
+    }
+    path "auth/token/lookup-self" {
+      capabilities = ["read"]
+    }
+    EOF
+    exec_vault vault write auth/kubernetes/role/eso \
+      bound_service_account_names=external-secrets \
+      bound_service_account_namespaces=external-secrets \
+      policies=eso \
+      ttl=1h
+    exec_vault vault write auth/kubernetes/role/app-seed \
+      bound_service_account_names=pipeline \
+      bound_service_account_namespaces='*' \
+      policies=app-seed \
+      ttl=15m
+    exec_vault vault auth enable userpass || true
+    exec_vault vault write auth/userpass/users/vaultadmin \
+      password={{ common_user_password }} \
+      policies=demo-admin
+  args:
+    executable: /bin/bash
+  no_log: true
+
+- name: Seed rhads-ci secrets into Vault
+  ansible.builtin.command:
+    cmd: python3 {{ role_path }}/files/seed_ci_secrets.py
+  environment:
+    OC_CONTEXT: "{{ oc_context }}"
+    VAULT_NAMESPACE: "{{ vault_namespace }}"
+    CI_NAMESPACE: "{{ pipelines_namespace }}"
+    VAULT_ROOT_TOKEN: "{{ vault_root_token }}"
+  no_log: true
+
+- name: Wait for External Secrets operand deployments
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n {{ eso_operand_namespace }} wait --for=condition=Available deploy --all --timeout=30s
+  register: eso_deploys
+  retries: 40
+  delay: 10
+  until: eso_deploys.rc == 0
+
+- name: Wait for ClusterSecretStore vault-backend
+  kubernetes.core.k8s_info:
+    api_version: external-secrets.io/v1
+    kind: ClusterSecretStore
+    name: vault-backend
+  register: css_vault
+  retries: 30
+  delay: 10
+  until: >
+    css_vault.resources | default([]) | length > 0 and
+    (
+      (css_vault.resources[0].status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | list | length > 0)
+      and
+      (css_vault.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | list)[0].status == 'True'
+    )

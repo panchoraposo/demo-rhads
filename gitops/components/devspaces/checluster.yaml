@@ -18,7 +18,7 @@ spec:
       # Public Open VSX so RHDA / Java / Quarkus vsix files resolve (embedded registry is a subset).
       openVSXURL: https://open-vsx.org
     imagePuller:
-      enable: false
+      enable: true
   containerRegistry: {}
   devEnvironments:
     defaultEditor: che-incubator/che-code/latest
@@ -27,8 +27,8 @@ spec:
     # Keep the demo workspace warm; first start is dominated by UDI/che-code image pulls.
     secondsOfInactivityBeforeIdling: -1
     secondsOfRunBeforeIdling: -1
-    maxNumberOfRunningWorkspacesPerUser: 2
-    maxNumberOfWorkspacesPerUser: 5
+    maxNumberOfRunningWorkspacesPerUser: 4
+    maxNumberOfWorkspacesPerUser: 8
     persistUserHome:
       enabled: true
     nodeSelector:

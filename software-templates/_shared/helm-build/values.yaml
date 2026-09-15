@@ -27,3 +27,7 @@ build:
 
 # Topology icon written into GitOps values-<env>.yaml (camel | quarkus | nodejs).
 appRuntime: ""
+
+# Optional. When set, the bootstrap Job writes these keys to Vault at
+# secret/apps/{component_id} and External Secrets Operator syncs them.
+maas: {}

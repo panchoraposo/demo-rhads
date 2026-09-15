@@ -165,6 +165,16 @@
     cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/rhacs
   changed_when: true
 
+- name: Drop immutable pipeline Jobs so a re-install can recreate them
+  ansible.builtin.command:
+    cmd: >
+      oc --context {{ oc_context }} -n rhads-ci delete job
+      rhads-maven-warm rhads-enable-tekton-chains
+      --ignore-not-found --wait=true --timeout=180s
+  register: drop_pipeline_jobs
+  failed_when: false
+  changed_when: true
+
 - name: Apply pipeline cluster tasks
   ansible.builtin.command:
     cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/pipelines
@@ -173,6 +183,20 @@
 - name: Apply Nexus (Maven/npm proxy cache)
   ansible.builtin.command:
     cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/nexus
+  changed_when: true
+
+- name: Apply HashiCorp Vault
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/vault
+  changed_when: true
+
+- name: Apply External Secrets operand config (Vault store follows once CRDs exist)
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/external-secrets
+  register: apply_eso
+  retries: 40
+  delay: 15
+  until: apply_eso.rc == 0
   changed_when: true
 
 - name: Apply Dev Spaces CheCluster

@@ -1,4 +1,4 @@
-# Live demo script (~25–30 min)
+# Live demo script (~30–35 min)
 
 Shared password: `backstage`. Keep the dashboard `https://dashboard.apps.<cluster>/` open in a support tab.
 
@@ -13,7 +13,7 @@ This cluster was installed from GitHub (`./install.sh`). GitLab holds the live G
 1. Developer Hub → Keycloak OIDC login as **`dev1`**.
 2. Create → **Agentic app — Quarkus MCP** (group `developers`, Quay already filled in). Name **at most 18 characters** — leave the default `quarkus-agent`. For Miles of Smiles HITL + MaaS instead, Create → **Agentic app — Quarkus HITL** (`miles-smiles`) and paste the MaaS API key. For Camel + Kaoto supervisor (step 04, no HITL), Create → **Agentic app — Camel supervisor** (`miles-camel`) and paste the same MaaS key.
 3. Wait for the scaffolder to publish two repos and the Argo CD app-of-apps (`{app}-build`, `{app}-dev`, `{app}-staging`, `{app}-prod`).
-4. The GitOps webhook Job registers the GitLab hook, creates `rhads/{app}` in Quay, and **immediately triggers** the first build (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**, so it is there when Dev Spaces opens. Task `gitsign-verify` prints a WARN and still PASSes.
+4. The bootstrap Job writes app secrets to **Vault**. External Secrets Operator syncs platform CI secrets and (for HITL/supervisor) the MaaS key into the app namespaces. The webhook Job registers the GitLab hook, creates `rhads/{app}` in Quay, and **immediately triggers** the first build (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**, so it is there when Dev Spaces opens. Task `gitsign-verify` prints a WARN and still PASSes. `conforma-dev` reports `rhads_source.git_commit_signed` as a failure and continues (STRICT=false). **Do not tag this commit yet** — that is the failed-promotion beat in step 4. Optional: Vault UI (`vaultadmin` / `backstage`) → `secret/apps/{app}` and `secret/rhads/ci`.
 
 ## 2. Inner loop in Dev Spaces (6 min)
 
@@ -43,10 +43,7 @@ Start the workspace **before the audience is in the room**. The first start pull
 ```
 
 Nexus already proxies those artifacts (`1.9`/`1.33` stay for the first SBOM).
-5. Command palette → **Configure Sigstore git commit signing (gitsign + RHTAS TUF)** (once per workspace). That installs gitsign, sets author `dev1@rhads.demo`, and initializes the **cluster TUF root** (private Fulcio is not in the public Sigstore TUF).
-6. In the terminal: `git add -A && git commit -m "demo: signed change from Dev Spaces"`. Dev Spaces has no `xdg-open` — copy the printed URL, log in as **`dev1` / `backstage`**, paste the verification code. The Fulcio certificate identity is the Keycloak email, not `dev1@rhads.com`.
-7. Command palette → **Verify Sigstore-signed HEAD (gitsign + RHTAS TUF)**. Then `git push origin main`.
-8. The GitLab webhook starts the pipeline on that signed commit. `gitsign-verify` now PASSes for real.
+5. Command palette → **Configure Sigstore git commit signing (gitsign + RHTAS TUF)** (once per workspace). That installs gitsign, sets author `dev1@rhads.demo`, and initializes the **cluster TUF root** (private Fulcio is not in the public Sigstore TUF). Leave the CVE bump **unstaged** until after the unsigned tag fails in step 4, so the signed commit is the one you promote.
 
 ## 3. Build pipeline (8 min)
 
@@ -63,21 +60,36 @@ In RHDH (CI / Tekton tab) or OpenShift → Pipelines. Each task prints an `[SSSC
 | attest-sbom | SBOM bound to the digest (`.att`) |
 | acs-scan / acs-check | ACS CVEs and policies |
 | upload-tpa | searchable SBOM in TPA |
-| conforma-dev | Enterprise Contract `@redhat` + `@slsa3` (report; not STRICT) |
+| conforma-dev | Enterprise Contract `@redhat` + `@slsa3` + `rhads_source.git_commit_signed` (report; not STRICT). Unsigned scaffold is a visible failure that does not block dev. |
 | update-gitops-dev | GitOps `dev` |
 | chains-status (finally) | Dumps Tekton Chains annotations. Does **not** sign. Chains (`tekton-chains-controller`) signs TaskRuns **keyless** (Fulcio + Rekor) asynchronously. |
 
 Open Quay: SHA tag, `.sig`, SBOM. Rekor Search UI (`https://rekor-search-ui-trusted-artifact-signer.apps.<cluster>/`): UUID from the pipeline, email, or digest. OpenShift → Builds: the `{app}-img` BuildConfig.
 
-On the catalog entity, **Topology** already shows `{app}-dev` (and pipeline `affinity-assistant-*` pods in that namespace). Staging and prod appear after the next two steps, not before those namespaces have Running workloads.
+On the catalog entity, **Topology** already shows `{app}-dev` (and pipeline `affinity-assistant-*` pods in that namespace). Walk this table against the **unsigned** first PipelineRun. Staging appears only after the signed tag in step 6.
 
-## 4. Promote to staging (3 min)
+## 4. Promote unsigned → Conforma deny (3 min)
 
-GitLab → Repository → Tags → `v1.0.0` on the commit **already built** (the GitLab tag starts the pipeline; the image stays tagged with the SHA).
+GitLab → Repository → Tags → `v1.0.0` on the **unsigned scaffold** commit (the first build SHA). The GitLab `tag_push` starts `{app}-promote` overlay `staging`. The image stays tagged with the SHA.
 
-`{app}-promote` overlay `staging`: ACS → **Conforma STRICT** → GitOps → comment on the GitLab commit.
+ACS image-check is **report-only** (UBI n-1 images always have fixable RHSAs). **Conforma STRICT** clones that commit, runs `gitsign verify`, and denies **`rhads_source.git_commit_signed`**. `update-gitops` does not run; `{app}-staging` stays empty. Open the Conforma task logs: `[SSSC] Conforma / Enterprise Contract (staging)` then `FAIL: rhads_source.git_commit_signed`.
 
-ACS policy **Fixable Severity at least Important** is **report-only** on this demo (UBI n-1 images always have fixable RHSAs). If it still has `FAIL_BUILD`, the promote task fails even after bumping app libraries.
+## 5. Signed Dev Spaces change → new build (4 min)
+
+Back in the workspace that is already Running:
+
+1. Stage the CVE bump from step 2 (or a one-line README / tool-description edit).
+2. Terminal: `git add -A && git commit -m "demo: signed change from Dev Spaces"`. Dev Spaces has no `xdg-open` — copy the printed URL, log in as **`dev1` / `backstage`**, paste the verification code. The Fulcio certificate identity is the Keycloak email (`dev1@rhads.demo`), not `dev1@rhads.com`.
+3. Command palette → **Verify Sigstore-signed HEAD (gitsign + RHTAS TUF)**. GitLab shows the commit as **Verified**.
+4. `git push origin main`. The webhook starts a **new** `{app}-build` on that SHA. `gitsign-verify` PASSes. `conforma-dev` reports `rhads_source.git_commit_signed` as satisfied (still STRICT=false).
+
+Wait until this PipelineRun succeeds (Quay has the new SHA tag) before the next tag. Do not start a second build against the same RWO `{app}-build-cache` PVC.
+
+## 6. Promote signed → staging (3 min)
+
+GitLab → Repository → Tags → `v1.0.1` on the **signed** commit (not `v1.0.0`). Same `{app}-promote` pipeline, overlay `staging`, Conforma STRICT.
+
+`rhads_source.git_commit_signed` PASSes together with `@redhat` / `@slsa3`. GitOps updates staging. Catalog **Topology** shows `{app}-staging`. A comment lands on the GitLab commit.
 
 To actually shrink those ACS findings in Dev Spaces (optional inner-loop), bump **both**:
 
@@ -86,14 +98,14 @@ To actually shrink those ACS findings in Dev Spaces (optional inner-loop), bump 
 
 Quarkus alone does **not** clear the gate: most BREAKS BUILD hits are RHSA on the UBI8 JDK image (`glibc`, `openjdk`, `python3`, …).
 
-## 5. Promote to production (3 min)
+## 7. Promote to production (3 min)
 
-GitLab → Deployments → Releases → Release `v1.0.0`.
+GitLab → Deployments → Releases → Release `v1.0.1` (the **signed** tag, not `v1.0.0`).
 
 Same pipeline, overlay `prod`, Conforma STRICT. Prod route. In Hub, open **Topology** again: `{app}-dev`, `{app}-staging`, and `{app}-prod` share `backstage.io/kubernetes-id` (the catalog does not pin `kubernetes-namespace` to `-dev`).
 
-## 6. Wrap-up (2 min)
+## 8. Wrap-up (2 min)
 
-Nexus (`admin` / `admin123`) shows the Maven cache. Chains is in `TektonConfig/config`: `signers.x509.fulcio.enabled` plus Rekor `transparency.url` (no long-lived Chains key). Conforma evaluates the documented Red Hat and SLSA collections; Konflux-only hermetic rules are excluded. Platform engineers evolve templates and policies; developers never touch signing or ACS YAML.
+Nexus (`admin` / `admin123`) shows the Maven cache. Chains is in `TektonConfig/config`: `signers.x509.fulcio.enabled` plus Rekor `transparency.url` (no long-lived Chains key). Conforma evaluates `@redhat` + `@slsa3` plus `rhads_source.git_commit_signed`; Konflux-only hermetic rules are excluded. Platform engineers evolve templates and policies; developers never touch signing or ACS YAML.
 
 If you change the platform during the week, push it to **GitHub** so the next `./install.sh` on a new sandbox includes it.

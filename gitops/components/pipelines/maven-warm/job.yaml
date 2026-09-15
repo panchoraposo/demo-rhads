@@ -10,6 +10,7 @@ metadata:
     argocd.argoproj.io/hook: PostSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   backoffLimit: 4
   ttlSecondsAfterFinished: 86400
@@ -63,10 +64,12 @@ spec:
               warm_one quarkus-hitl
               warm_one camel-agentic
               warm_one camel-supervisor
+              touch /m2/.rhads-seeded
               echo "Maven local repo: $(du -sh /m2 | awk '{print $1}')"
-              tar -C /m2 --exclude=lost+found --exclude=m2-seed.tar.gz -czf /m2/m2-seed.tar.gz .
-              ls -lh /m2/m2-seed.tar.gz
-              echo "PASS: tarball written on PVC"
+              tar -C /m2 --exclude=lost+found --exclude=m2-seed.tar.gz -czf /tmp/m2-seed.tar.gz .
+              ls -lh /tmp/m2-seed.tar.gz
+              cp -f /tmp/m2-seed.tar.gz /m2/m2-seed.tar.gz
+              echo "PASS: tarball written"
       containers:
         - name: publish
           image: registry.access.redhat.com/ubi9/ubi:9.6
@@ -100,9 +103,11 @@ spec:
                   -d '{"name":"raw-hosted","online":true,"storage":{"blobStoreName":"default","strictContentTypeValidation":false,"writePolicy":"ALLOW"}}' \
                   || echo "raw-hosted create returned non-2xx"
               fi
-              test -s /m2/m2-seed.tar.gz
-              ls -lh /m2/m2-seed.tar.gz
-              curl -sf "${AUTH[@]}" --upload-file /m2/m2-seed.tar.gz "${SEED_URL}"
+              test -s /m2/m2-seed.tar.gz || test -s /tmp/m2-seed.tar.gz
+              SEED_FILE=/m2/m2-seed.tar.gz
+              [ -s "${SEED_FILE}" ] || SEED_FILE=/tmp/m2-seed.tar.gz
+              ls -lh "${SEED_FILE}"
+              curl -sf "${AUTH[@]}" --upload-file "${SEED_FILE}" "${SEED_URL}"
               curl -sfI "${SEED_URL}" | head -8
               echo "PASS: ${SEED_URL}"
               SYFT_TGZ=/tmp/syft_1.27.1_linux_amd64.tar.gz

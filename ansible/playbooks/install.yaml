@@ -13,6 +13,7 @@
     - role: rhtas-config
     - role: tpa-config
     - role: acs-config
+    - role: vault-config
     - role: rhdh-config
     - role: dashboard
   post_tasks:

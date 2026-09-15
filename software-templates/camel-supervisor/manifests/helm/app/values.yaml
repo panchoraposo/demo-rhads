@@ -68,9 +68,9 @@ resources:
     memory: 2Gi
 
 maas:
+  enabled: true
   baseUrl: https://maas-rhdp.apps.maas.redhatworkshops.io/v1/
   model: qwen3-14b
-  apiKey: ""
 
 autoscaling:
   enabled: false

@@ -9,7 +9,9 @@ metadata:
   labels:
     app.kubernetes.io/part-of: rhads-demo
 spec:
-  schedule: "*/10 * * * *"
+  # Large Syft SBOMs stale the planner between 10-minute ticks and the
+  # OpenShift route cuts GET /api/v3/sbom/{id} at 30s (generic UI Error).
+  schedule: "*/2 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 2
@@ -19,6 +21,13 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: node-role.kubernetes.io/control-plane
+                        operator: DoesNotExist
           containers:
             - name: analyze
               image: registry.redhat.io/rhel9/postgresql-16:latest
@@ -43,7 +52,7 @@ spec:
               command:
                 - /bin/bash
                 - -c
-                - psql -c ANALYZE
+                - psql -v ON_ERROR_STOP=1 -c ANALYZE
               resources:
                 requests:
                   cpu: 50m

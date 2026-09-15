@@ -12,30 +12,43 @@ components:
     container:
       image: registry.redhat.io/devspaces/udi-rhel9:latest
       memoryLimit: 8Gi
-      memoryRequest: 4Gi
+      memoryRequest: 1Gi
       cpuLimit: "4"
-      cpuRequest: "2"
+      cpuRequest: "250m"
       mountSources: true
-      command: ["sleep", "infinity"]
+      command:
+        - /bin/bash
+        - -c
+        - |
+          mkdir -p /home/user/.m2 /home/user/.jbang/bin
+          (
+            if [ ! -f /home/user/.m2/.rhads-seeded ]; then
+              curl -fsS --retry 8 --max-time 180 \
+                http://nexus.nexus.svc:8081/repository/raw-hosted/rhads/m2-seed.tar.gz \
+                | tar -xz -C /home/user/.m2 \
+                && touch /home/user/.m2/.rhads-seeded
+            fi
+          ) >/tmp/rhads-m2-seed.log 2>&1 &
+          exec sleep infinity
       endpoints:
-        # Endpoint names become Services in <user>-devspaces. Keep them unique
-        # vs quarkus-hitl (fleet-ui) or routing stays "Preparing services".
+        # Public discoverable routes on 8080 block "Preparing services" until
+        # Camel listens. Keep one public UI; Dev UI is internal (same port).
         - name: camel-ui
           targetPort: 8080
           exposure: public
           protocol: https
           path: /
           attributes:
-            discoverable: "true"
+            discoverable: "false"
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
         - name: camel-devui
           targetPort: 8080
-          exposure: public
+          exposure: internal
           protocol: https
           path: /q/dev
           attributes:
-            discoverable: "true"
+            discoverable: "false"
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
       env:
@@ -61,17 +74,6 @@ components:
           value: dev1@rhads.demo
         - name: CLUSTER_SUBDOMAIN
           value: ${{values.cluster_subdomain}}
-      volumeMounts:
-        - name: m2
-          path: /home/user/.m2
-        - name: jbang
-          path: /home/user/.jbang
-  - name: m2
-    volume:
-      size: 5Gi
-  - name: jbang
-    volume:
-      size: 3Gi
 commands:
   - id: install-camel
     exec:

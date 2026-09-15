@@ -43,6 +43,7 @@
     - { ns: openshift-storage, match: odf-operator }
     - { ns: openshift-storage, match: mcg-operator }
     - { ns: openshift-operators, match: odf-multicluster-orchestrator }
+    - { ns: external-secrets-operator, match: external-secrets-operator }
   loop_control:
     loop_var: csv
 

@@ -20,6 +20,8 @@ Stack validated against the OpenShift catalog (OCP **4.20.33**):
 | GitLab Community | `docker.io/gitlab/gitlab-ce:19.3.0-ce.0` (omnibus) |
 | OpenShift Data Foundation | MCG (NooBaa) + Multicluster Orchestrator |
 | Conforma | CLI in the promotion pipeline |
+| External Secrets Operator | `stable-v1` (Red Hat) |
+| HashiCorp Vault | `1.19.5` (in-cluster KV + Kubernetes auth) |
 
 Patterns taken from [rh1-demo-rhoai3](https://github.com/panchoraposo/rh1-demo-rhoai3) (GitLab, RHDH, users, templates) and [demo-spring](https://github.com/panchoraposo/demo-spring) (RHTAS, TPA, ACS, signing, and SBOM).
 
@@ -33,7 +35,8 @@ GitHub (this repo)  ──install.sh──► cluster (operators + ODF MCG)
 Developer Hub  ──template──► GitLab (source + *-gitops)
       │                         │
       └── Dev Spaces            ├── push  → Nexus + OpenShift Builds + SBOM + cosign + Chains → dev
-         RHDA / gitsign         ├── tag   → Conforma STRICT + GitOps → staging
+         RHDA / gitsign         ├── tag unsigned → Conforma STRICT deny
+                                ├── signed push → new build → tag signed → Conforma STRICT + GitOps → staging
                                 └── release → Conforma STRICT + GitOps → production
 ```
 
@@ -61,7 +64,7 @@ The playbook:
 
 1. Discovers the cluster domain (`apps.<baseDomain>`).
 2. Installs OpenShift GitOps and applies RHADS operators with kustomize (including ODF + MCO).
-3. Deploys GitLab CE, Keycloak, **ODF (MCG + MCO)**, Quay, RHTAS, TPA, ACS, Pipelines, **Nexus**, Dev Spaces, and Developer Hub.
+3. Deploys GitLab CE, Keycloak, **ODF (MCG + MCO)**, Quay, RHTAS, TPA, ACS, Pipelines, **Nexus**, **Vault**, **External Secrets Operator**, Dev Spaces, and Developer Hub.
 4. Creates **developers** (`dev1-3`) and **platform-engineers** (`pe1-3`) groups, password `backstage`.
 5. Publishes **this working tree** to GitLab (`platform-engineers/rhads-platform`) and points Argo CD at it. Software templates get the live GitLab/Quay hostnames.
 6. Seeds TPA with a small OSV advisory set so RHDA/SBOMs show CVEs without waiting for full feed importers.
@@ -88,6 +91,7 @@ If GitLab omnibus is rebuilt but the rest of the cluster is intact:
 | GitLab root | `root` | `backstage` | GitLab |
 | Quay | `quayadmin` | `backstage` | Quay |
 | Nexus | `admin` | `admin123` | Nexus |
+| Vault | `vaultadmin` | `backstage` | Vault UI (userpass); KV at `secret/` |
 | TPA | `tpa-admin` | `backstage` | realm `trustify` |
 
 Generated secrets (Keycloak master, Argo CD, ACS): [docs/credentials.md](docs/credentials.md).
@@ -96,12 +100,12 @@ Generated secrets (Keycloak master, Argo CD, ACS): [docs/credentials.md](docs/cr
 
 1. Sign in to Developer Hub as `dev1`.
 2. Create → **Agentic app — Quarkus MCP** (Camel, Node.js, **Quarkus HITL**, and **Camel supervisor / Miles of Smiles** are also available). Component **name max 18 characters** (`quarkus-agent` is the default). For HITL + MaaS, pick **Agentic app — Quarkus HITL** (`miles-smiles`). For Kaoto + Camel JBang + MaaS (supervisor, no HITL), pick **Agentic app — Camel supervisor** (`miles-camel`) and paste a MaaS API key.
-3. The template publishes source plus a GitOps repo (app of apps: build, dev, staging, prod). A Job registers the GitLab webhook, creates the Quay repo, and **starts the first PipelineRun** (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**.
-4. From the catalog, **OpenShift Dev Spaces**. Run RHDA on `pom.xml`. Open the SBOM in TPA. Change code.
-5. Dev Spaces command palette: **Configure Sigstore git commit signing (gitsign + RHTAS TUF)**, signed `git commit` (copy the OIDC URL; Dev Spaces has no browser helper), **Verify Sigstore-signed HEAD**, then `git push` → pipeline.
-6. Pipeline: Nexus, OpenShift Builds, SBOM, cosign+Rekor, attest, ACS, TPA, Conforma (report in `dev`), GitOps `dev`, Tekton Chains.
-7. In GitLab, **tag** `v1.0.0` → staging (Conforma STRICT + commit comment).
-8. **Release** on that tag → production (Conforma STRICT). Hub **Topology** lists the same workload in `{app}-dev`, `{app}-staging`, and `{app}-prod` (catalog entities do not pin a single namespace).
+3. The template publishes source plus a GitOps repo (app of apps: build, dev, staging, prod). A Job writes application secrets to **Vault**, External Secrets Operator syncs them (and the platform CI secrets) into the app namespaces, registers the GitLab webhook, creates the Quay repo, and **starts the first PipelineRun** (the scaffolder commit landed before the hook existed). That unsigned run loads the **first SBOM into TPA**.
+4. From the catalog, **OpenShift Dev Spaces**. Run RHDA on `pom.xml`. Open the SBOM in TPA. Command palette: **Configure Sigstore git commit signing (gitsign + RHTAS TUF)**. Leave the CVE bump unstaged until after the unsigned tag fails.
+5. Pipeline (unsigned scaffold): Nexus, OpenShift Builds, SBOM, cosign+Rekor, attest, ACS, TPA, Conforma (report in `dev` — `rhads_source.git_commit_signed` fails, STRICT=false), GitOps `dev`, Tekton Chains.
+6. In GitLab, **tag** `v1.0.0` on the unsigned scaffold commit → staging pipeline. Conforma STRICT **denies** `rhads_source.git_commit_signed`; GitOps is not updated.
+7. Signed `git commit` from Dev Spaces (copy the OIDC URL; Dev Spaces has no browser helper), **Verify Sigstore-signed HEAD**, `git push` → new pipeline. GitLab shows **Verified**. Then **tag** `v1.0.1` on that commit → staging (Conforma STRICT passes + commit comment).
+8. **Release** `v1.0.1` → production (Conforma STRICT). Hub **Topology** lists the same workload in `{app}-dev`, `{app}-staging`, and `{app}-prod` (catalog entities do not pin a single namespace).
 
 ## Uninstall
 
