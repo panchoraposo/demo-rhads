@@ -9,7 +9,7 @@ import dev.langchain4j.agentic.observability.AgentRequest;
 import dev.langchain4j.agentic.observability.AgentResponse;
 
 /**
- * Emits Camel-style {@code 🧠 AgentName raw=…} lines for specialist/intake agents.
+ * Emits Camel-style {@code [ai] AgentName raw=…} lines for specialist/intake agents.
  */
 public final class WorkflowTraceListener implements AgentListener {
 

@@ -27,12 +27,12 @@
               Feedback: ${exchangeProperty.feedback}
         - log:
             loggingLevel: INFO
-            message: "▶ supervisor car=#${exchangeProperty.carNumber} feedback=${exchangeProperty.feedback}"
+            message: ">>> START supervisor car=#${exchangeProperty.carNumber} feedback=${exchangeProperty.feedback}"
         - to: direct:workflow
         - to: bean:workflowSupport?method=response
         - log:
             loggingLevel: INFO
-            message: "✅ supervisor car=#${exchangeProperty.carNumber} action=${body[workflow][action]}"
+            message: "<<< DONE supervisor car=#${exchangeProperty.carNumber} action=${body[workflow][action]}"
 - route:
     id: cleaning-feedback-agent
     description: CleaningFeedbackAgent — dirt/stains/odor only
@@ -58,7 +58,7 @@
               jsonSchema: file:schemas/cleaning.schema.json
         - log:
             loggingLevel: INFO
-            message: 🧠 CleaningFeedback raw=${body}
+            message: "[ai] CleaningFeedback raw=${body}"
         - to: bean:workflowSupport?method=extractJson
         - unmarshal:
             json: {}
@@ -91,7 +91,7 @@
               jsonSchema: file:schemas/maintenance.schema.json
         - log:
             loggingLevel: INFO
-            message: 🧠 MaintenanceFeedback raw=${body}
+            message: "[ai] MaintenanceFeedback raw=${body}"
         - to: bean:workflowSupport?method=extractJson
         - unmarshal:
             json: {}
@@ -123,7 +123,7 @@
               jsonSchema: file:schemas/disposition.schema.json
         - log:
             loggingLevel: INFO
-            message: 🧠 DispositionFeedback raw=${body}
+            message: "[ai] DispositionFeedback raw=${body}"
         - to: bean:workflowSupport?method=extractJson
         - unmarshal:
             json: {}

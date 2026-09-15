@@ -18,7 +18,7 @@ Return a Mercedes / BMW / Audi / Civic (`RENTED`) with a totaled/collision promp
 
 The cluster **Fleet UI (dev)** is `https://miles-smiles-miles-smiles-dev.<apps-domain>/`. Staging/prod stay at 0 replicas until a GitLab tag/release promote; they must not pull `:pending-promotion`. A new image in **dev** uses Deployment strategy **Recreate** so the in-memory H2 database always reloads `import.sql` (fleet status and in-JVM HITL approvals reset).
 
-Logs follow the Miles of Smiles convention: `▶` start, `🧠` agents, `🚗` / `🔧` / `📋` tools, `✅` outcome. `POST /car-management/return/{id}` returns `{ car, workflow }`.
+Logs follow the Miles of Smiles convention: `>>> START`, `[ai]` agents, `[tool]` tools, `<<< DONE`. `POST /car-management/return/{id}` returns `{ car, workflow }`.
 
 ```text
 The car was in a serious collision. Front end is completely destroyed and airbags deployed.

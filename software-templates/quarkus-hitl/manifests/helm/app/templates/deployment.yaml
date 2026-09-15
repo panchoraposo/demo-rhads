@@ -23,12 +23,13 @@ spec:
       labels:
         {{- include "quarkus-template.selectorLabels" . | nindent 8 }}
         {{- include "backstage.labels" . | nindent 8 }}
+        app.openshift.io/runtime: {{ .Values.runtime | default "quarkus" }}
     spec:
       serviceAccountName: {{ include "quarkus-template.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: {{ .Values.runtime | default "quarkus" }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: {{ include "quarkus-template.image" . }}
@@ -40,6 +41,8 @@ spec:
               value: "/.*/"
             - name: QUARKUS_HTTP_CORS_METHODS
               value: "GET,HEAD,POST,PUT,DELETE,PATCH,OPTIONS"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dsun.stderr.encoding=UTF-8"
           envFrom:
             - secretRef:
                 name: {{ include "quarkus-template.name" . }}-maas

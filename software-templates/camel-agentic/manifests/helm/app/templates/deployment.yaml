@@ -20,12 +20,13 @@ spec:
       labels:
         {{- include "quarkus-template.selectorLabels" . | nindent 8 }}
         {{- include "backstage.labels" . | nindent 8 }}
+        app.openshift.io/runtime: {{ .Values.runtime | default "camel" }}
     spec:
       serviceAccountName: {{ include "quarkus-template.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: {{ .Values.runtime | default "camel" }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: {{ include "quarkus-template.image" . }}

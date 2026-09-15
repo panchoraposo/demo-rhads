@@ -1,4 +1,6 @@
 replicaCount: 1
+# Topology icon in the OpenShift Developer perspective.
+runtime: camel
 # In-memory fleet: Recreate on each new image so Civic #7 is RENTED again.
 
 image:

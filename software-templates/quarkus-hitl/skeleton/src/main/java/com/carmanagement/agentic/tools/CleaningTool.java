@@ -43,7 +43,7 @@ public class CleaningTool {
         String result = generateCleaningSummary(carNumber, carMake, carModel, carYear,
                                               exteriorWash, interiorCleaning, detailing,
                                               waxing, requestText);
-        Log.info("🚗 CleaningTool result: " + result);
+        Log.info("[tool] CleaningTool result: " + result);
         return result;
     }
 

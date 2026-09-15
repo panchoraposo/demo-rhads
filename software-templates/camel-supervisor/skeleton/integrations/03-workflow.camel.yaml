@@ -14,7 +14,7 @@
         - to: "bean:workflowSupport?method=applyIntakeFlags"
         - log:
             loggingLevel: INFO
-            message: "🧠 supervisor assignment=${exchangeProperty.assignment} agent=${exchangeProperty.assignmentAgent}"
+            message: "[ai] supervisor assignment=${exchangeProperty.assignment} agent=${exchangeProperty.assignmentAgent}"
         - recipientList:
             simple: "${exchangeProperty.assignmentRoute}"
         - to: "bean:fleetStore?method=applyIntake(${exchangeProperty.carNumber},${exchangeProperty.intake})"
@@ -91,11 +91,11 @@
               maxTokens: 256
         - log:
             loggingLevel: INFO
-            message: "🧠 PricingAgent raw=${body}"
+            message: "[ai] PricingAgent raw=${body}"
         - to: "bean:workflowSupport?method=capturePricing"
         - log:
             loggingLevel: INFO
-            message: "🧠 PricingAgent value=${exchangeProperty.carValue}"
+            message: "[ai] PricingAgent value=${exchangeProperty.carValue}"
 
 - route:
     id: supervisor-available

@@ -33,7 +33,7 @@
               fileName: "maintenance-car-${exchangeProperty.carNumber}-${date:now:yyyyMMdd-HHmmss}.json"
         - log:
             loggingLevel: INFO
-            message: "🔧 MaintenanceTool car=#${exchangeProperty.carNumber}"
+            message: "[tool] MaintenanceTool car=#${exchangeProperty.carNumber}"
 
 - route:
     id: tool-request-disposition
@@ -51,4 +51,4 @@
               fileName: "disposition-car-${exchangeProperty.carNumber}-${date:now:yyyyMMdd-HHmmss}.json"
         - log:
             loggingLevel: INFO
-            message: "📋 DispositionTool car=#${exchangeProperty.carNumber} action=${exchangeProperty.intake[dispositionAction]} value=${exchangeProperty.carValue}"
+            message: "[tool] DispositionTool car=#${exchangeProperty.carNumber} action=${exchangeProperty.intake[dispositionAction]} value=${exchangeProperty.carValue}"

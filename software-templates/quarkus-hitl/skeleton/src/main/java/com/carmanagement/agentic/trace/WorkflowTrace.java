@@ -21,11 +21,11 @@ public final class WorkflowTrace {
     }
 
     public static void start(String type, Integer carNumber, String feedback) {
-        Log.info("▶ " + type + " car=#" + carNumber + " feedback=" + (feedback == null ? "" : feedback));
+        Log.info(">>> START " + type + " car=#" + carNumber + " feedback=" + (feedback == null ? "" : feedback));
     }
 
     public static void agent(String name, Object output) {
-        Log.info("🧠 " + name + " raw=" + compact(output));
+        Log.info("[ai] " + name + " raw=" + compact(output));
     }
 
     /** 202 body while the worker runs (Che cannot hold a 5-minute HITL POST). Same envelope as the finished 200. */
@@ -51,7 +51,7 @@ public final class WorkflowTrace {
                     case "CLEANING" -> "CleaningAgent";
                     default -> "(none)";
                 };
-                Log.info("🧠 supervisor assignment=" + assignment + " agent=" + agent);
+                Log.info("[ai] supervisor assignment=" + assignment + " agent=" + agent);
                 if ("DISPOSITION".equals(assignment)) {
                     Log.info("Supervisor → PricingAgent + DispositionProposalAgent + HumanApprovalAgent");
                 } else if ("NONE".equals(assignment)) {
@@ -59,13 +59,13 @@ public final class WorkflowTrace {
                 }
             }
             case "conditional" -> {
-                Log.info("🧠 flags cleaning=" + cleaning + " maintenance=" + maintenance);
+                Log.info("[ai] flags cleaning=" + cleaning + " maintenance=" + maintenance);
                 if (!maintenance && !cleaning) {
                     Log.info("Conditional: car remains available");
                 }
             }
             default -> {
-                Log.info("🧠 cleaning=" + cleaning + " maintenance=" + maintenance
+                Log.info("[ai] cleaning=" + cleaning + " maintenance=" + maintenance
                         + " condition=" + String.valueOf(intake.getOrDefault("condition", "")));
                 if ("agent".equals(type) && !cleaning) {
                     Log.info("CLEANING_NOT_REQUIRED");
@@ -73,7 +73,7 @@ public final class WorkflowTrace {
             }
         }
         if (disposition && !"supervisor".equals(type)) {
-            Log.info("🧠 disposition=" + disposition);
+            Log.info("[ai] disposition=" + disposition);
         }
     }
 
@@ -87,11 +87,11 @@ public final class WorkflowTrace {
             }
             case "AT_MAINTENANCE" -> {
                 WorkOrderWriter.maintenance(carNumber, car, intake);
-                Log.info("🔧 MaintenanceTool car=#" + carNumber);
+                Log.info("[tool] MaintenanceTool car=#" + carNumber);
             }
             case "AT_CLEANING" -> {
                 WorkOrderWriter.cleaning(carNumber, car, intake);
-                Log.info("🚗 CleaningTool result: " + cleaningToolResult(carNumber, car, intake));
+                Log.info("[tool] CleaningTool result: " + cleaningToolResult(carNumber, car, intake));
             }
             default -> {
             }
@@ -99,11 +99,11 @@ public final class WorkflowTrace {
     }
 
     public static void dispositionTool(Integer carNumber, Object action, Object value) {
-        Log.info("📋 DispositionTool car=#" + carNumber + " action=" + action + " value=" + value);
+        Log.info("[tool] DispositionTool car=#" + carNumber + " action=" + action + " value=" + value);
     }
 
     public static void done(String type, Integer carNumber, String action) {
-        Log.info("✅ " + type + " car=#" + carNumber + " action=" + action);
+        Log.info("<<< DONE " + type + " car=#" + carNumber + " action=" + action);
     }
 
     public static WorkflowResult response(CarInfo carInfo, String type, Map<String, Object> intake) {

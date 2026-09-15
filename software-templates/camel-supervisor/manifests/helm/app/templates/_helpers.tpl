@@ -35,7 +35,7 @@ Common labels
 */}}
 {{- define "quarkus-template.labels" -}}
 helm.sh/chart: {{ include "quarkus-template.chart" . }}
-app.openshift.io/runtime: camel
+app.openshift.io/runtime: {{ .Values.runtime | default "camel" }}
 {{ include "quarkus-template.selectorLabels" . }}
 {{ include "backstage.labels" . }}
 {{- if .Chart.AppVersion }}

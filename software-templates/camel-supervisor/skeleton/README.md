@@ -16,7 +16,7 @@ Miles of Smiles **step 04** from [demo-camel-agentic](https://github.com/panchor
 The car was in a serious collision. Front end is completely destroyed and airbags deployed.
 ```
 
-Expected: **Pending Disposition**. Logs: `▶` start, `🧠` agents, `🚗` / `🔧` / `📋` tools, `✅` outcome. `POST /car-management/return/{id}` returns `{ car, workflow }`.
+Expected: **Pending Disposition**. Logs: `>>> START`, `[ai]` agents, `[tool]` tools, `<<< DONE`. `POST /car-management/return/{id}` returns `{ car, workflow }`.
 
 YAML not hot-reloaded from Kaoto until you restart Camel JBang.
 

@@ -143,7 +143,7 @@ public class WorkflowSupport {
         intake.put("dispositionNotes", "DISPOSITION_NOT_REQUIRED");
         exchange.setProperty("dispositionRequired", false);
         org.slf4j.LoggerFactory.getLogger("com.carmanagement.agentic.trace.WorkflowTrace")
-                .info("🧠 DispositionFeedback overridden: repairable, not catastrophic");
+                .info("[ai] DispositionFeedback overridden: repairable, not catastrophic");
     }
 
     @SuppressWarnings("unchecked")
@@ -314,7 +314,7 @@ public class WorkflowSupport {
         @SuppressWarnings("unchecked")
         java.util.Map<String, Object> intake = exchange.getProperty("intake", java.util.Map.class);
         org.slf4j.LoggerFactory.getLogger("com.carmanagement.agentic.trace.WorkflowTrace")
-                .info("🚗 CleaningTool result: {}", cleaningToolResult(exchange.getProperty("carNumber"), car, intake));
+                .info("[tool] CleaningTool result: {}", cleaningToolResult(exchange.getProperty("carNumber"), car, intake));
     }
 
     static String cleaningToolResult(Object carNumber, java.util.Map<String, Object> car,
