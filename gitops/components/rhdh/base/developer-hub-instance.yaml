@@ -15,6 +15,7 @@ spec:
       configMaps:
         - name: rbac-policies
         - name: catalog-static
+        - name: topology-camel-icon
     dynamicPluginsConfigMapName: dynamic-plugins-rhdh
     appConfig:
       mountPath: /opt/app-root/src
@@ -32,6 +33,15 @@ spec:
       spec:
         template:
           spec:
+            containers:
+              - name: backstage-backend
+                lifecycle:
+                  postStart:
+                    exec:
+                      command:
+                        - /bin/bash
+                        - -c
+                        - python3 /opt/app-root/src/inject-camel-topology-icon.py || true
             initContainers:
               - name: wait-for-sso
                 image: registry.redhat.io/openshift4/ose-cli:latest

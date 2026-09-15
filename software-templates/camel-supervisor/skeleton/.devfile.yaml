@@ -78,19 +78,7 @@ commands:
       label: Install JBang + Camel CLI
       component: tools
       workingDir: ${PROJECT_SOURCE}
-      commandLine: >-
-        bash -lc 'set -euo pipefail;
-        export PATH="$HOME/.jbang/bin:$PATH";
-        if ! command -v jbang >/dev/null 2>&1; then
-          curl -Ls https://sh.jbang.dev | bash;
-        fi;
-        mkdir -p "$HOME/.jbang/bin";
-        grep -q ".jbang/bin" "$HOME/.bashrc" 2>/dev/null || echo "export PATH=\"\$HOME/.jbang/bin:\$PATH\"" >> "$HOME/.bashrc";
-        jbang trust add https://github.com/apache/camel >/dev/null 2>&1 || true;
-        jbang app install camel@apache/camel;
-        camel version set 4.18.3 || true;
-        echo "jbang=$(jbang version 2>/dev/null | head -n 1)";
-        echo "camel=$(camel version 2>/dev/null | head -n 1)"'
+      commandLine: bash scripts/install-camel-cli.sh
       group:
         kind: build
         isDefault: true
@@ -105,7 +93,7 @@ commands:
       label: Camel JBang + MaaS (fleet UI on 8080)
       component: tools
       workingDir: ${PROJECT_SOURCE}
-      commandLine: bash -lc 'export PATH="$HOME/.jbang/bin:$PATH"; bash .devcontainer/setup-maas.sh; ./scripts/run-maas.sh'
+      commandLine: bash -c 'export PATH="$HOME/.jbang/bin:$PATH"; unset DISPLAY; export JAVA_TOOL_OPTIONS="-Djava.awt.headless=true${JAVA_TOOL_OPTIONS:+ ${JAVA_TOOL_OPTIONS}}"; bash .devcontainer/setup-maas.sh; ./scripts/run-maas.sh'
       group:
         kind: run
         isDefault: true

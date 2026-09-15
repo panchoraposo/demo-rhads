@@ -45,20 +45,9 @@ wait_listen() {
 }
 
 ensure_camel_cli() {
-  export PATH="${HOME}/.jbang/bin:/opt/homebrew/bin:${PATH}"
-  if ! command -v camel >/dev/null 2>&1; then
-    if command -v jbang >/dev/null 2>&1; then
-      echo "Installing Camel CLI via JBang…"
-      jbang trust add https://github.com/apache/camel >/dev/null 2>&1 || true
-      jbang app install camel@apache/camel
-    fi
-  fi
-  if ! command -v camel >/dev/null 2>&1; then
-    echo "Camel CLI not found. Install with:"
-    echo "  curl -Ls https://sh.jbang.dev | bash -s - app setup"
-    echo "  jbang trust add https://github.com/apache/camel"
-    echo "  jbang app install camel@apache/camel"
-    exit 1
-  fi
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck disable=SC1091
+  source "${here}/install-camel-cli.sh"
 }
 

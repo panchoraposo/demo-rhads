@@ -14,6 +14,12 @@ configMapGenerator:
       - app-config.yaml
     options:
       disableNameSuffixHash: true
+  - name: topology-camel-icon
+    files:
+      - camel.svg
+      - inject-camel-topology-icon.py
+    options:
+      disableNameSuffixHash: true
 
 generatorOptions:
   disableNameSuffixHash: true
