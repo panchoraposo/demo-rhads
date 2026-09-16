@@ -28,6 +28,8 @@ spec:
         - name: vault
           image: docker.io/hashicorp/vault:1.19.5
           imagePullPolicy: IfNotPresent
+          command:
+            - vault
           args:
             - server
             - -config=/vault/config/vault.hcl
@@ -38,6 +40,8 @@ spec:
             - name: VAULT_ADDR
               value: http://127.0.0.1:8200
             - name: SKIP_SETCAP
+              value: "true"
+            - name: SKIP_CHOWN
               value: "true"
           readinessProbe:
             tcpSocket:
@@ -101,11 +105,12 @@ spec:
             limits:
               memory: 128Mi
           securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-          volumeMounts: []
       volumes:
         - name: config
           configMap:

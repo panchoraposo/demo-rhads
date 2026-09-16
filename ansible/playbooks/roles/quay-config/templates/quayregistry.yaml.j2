@@ -12,16 +12,10 @@ spec:
   components:
     - kind: clair
       managed: false
+    # Quay 3.17 rejects affinity (and most other) overrides on postgres and
+    # sets RolloutBlocked, so the operator never creates postgres/redis/app.
     - kind: postgres
       managed: true
-      overrides:
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-                - matchExpressions:
-                    - key: node-role.kubernetes.io/control-plane
-                      operator: DoesNotExist
     - kind: objectstorage
       managed: true
     - kind: redis

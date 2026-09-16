@@ -165,13 +165,21 @@
     cmd: oc --context {{ oc_context }} apply -k {{ repo_root }}/gitops/components/rhacs
   changed_when: true
 
-- name: Drop immutable pipeline Jobs so a re-install can recreate them
-  ansible.builtin.command:
-    cmd: >
-      oc --context {{ oc_context }} -n rhads-ci delete job
-      rhads-maven-warm rhads-enable-tekton-chains
+- name: Drop immutable Jobs so a re-install can recreate them
+  ansible.builtin.shell: |
+    set -euo pipefail
+    oc --context {{ oc_context }} -n rhads-ci delete job \
+      rhads-maven-warm rhads-enable-tekton-chains \
       --ignore-not-found --wait=true --timeout=180s
-  register: drop_pipeline_jobs
+    oc --context {{ oc_context }} -n nexus delete job nexus-bootstrap \
+      --ignore-not-found --wait=true --timeout=180s
+    oc --context {{ oc_context }} -n trusted-artifact-signer delete job rhads-patch-fulcio-oidc \
+      --ignore-not-found --wait=true --timeout=180s
+    oc --context {{ oc_context }} -n trusted-profile-analyzer delete job rhads-patch-rhda-oidc \
+      --ignore-not-found --wait=true --timeout=180s
+  args:
+    executable: /bin/bash
+  register: drop_immutable_jobs
   failed_when: false
   changed_when: true
 

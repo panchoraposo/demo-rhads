@@ -32,9 +32,9 @@ def oc_json(namespace: str, args: list[str]) -> dict:
 
 
 def vault_put(path: str, data: dict) -> None:
-    # HashiCorp Vault image has the vault CLI (no curl/wget). KV v2 write
-    # expects {"data": {...}} on stdin via @-.
-    payload = json.dumps({"data": data})
+    # HashiCorp Vault image has the vault CLI (no curl/wget).
+    # `vault write ... @-` treats "-" as a filename. KV v2 wants stdin via `-`.
+    payload = json.dumps(data)
     proc = subprocess.run(
         [
             "oc",
@@ -52,10 +52,12 @@ def vault_put(path: str, data: dict) -> None:
             "VAULT_ADDR=http://127.0.0.1:8200",
             f"VAULT_TOKEN={ROOT}",
             "vault",
-            "write",
+            "kv",
+            "put",
             "-format=json",
-            f"secret/data/{path}",
-            "@-",
+            "-mount=secret",
+            path,
+            "-",
         ],
         input=payload,
         text=True,

@@ -66,7 +66,9 @@
         syncPolicy:
           automated:
             prune: false
-            selfHeal: true
+            # Keep GitHub from overwriting the local bootstrap apply. Self-heal
+            # is turned on when Applications are retargeted at GitLab.
+            selfHeal: false
           syncOptions:
             - CreateNamespace=true
             - SkipDryRunOnMissingResource=true

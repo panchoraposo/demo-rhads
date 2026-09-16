@@ -100,7 +100,7 @@
   ansible.builtin.command: >
     oc --context {{ oc_context }} -n {{ gitops_namespace }} patch application {{ item }}
     --type=merge
-    -p '{"spec":{"source":{"repoURL":"{{ gitlab_platform_repo }}","targetRevision":"main"}}}'
+    -p '{"spec":{"source":{"repoURL":"{{ gitlab_platform_repo }}","targetRevision":"main"},"syncPolicy":{"automated":{"prune":false,"selfHeal":true}}}}'
   loop:
     - rhads-operators
     - rhads-odf
@@ -110,6 +110,8 @@
     - rhads-rhacs
     - rhads-pipelines
     - rhads-nexus
+    - rhads-vault
+    - rhads-external-secrets
     - rhads-devspaces
     - rhads-quay-ns
   register: patch_argo_src
