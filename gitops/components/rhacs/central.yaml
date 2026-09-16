@@ -12,6 +12,8 @@ spec:
     exposure:
       route:
         enabled: true
+    nodeSelector:
+      node-role.kubernetes.io/worker: ""
     resources:
       requests:
         cpu: 500m
@@ -20,6 +22,8 @@ spec:
         cpu: "2"
         memory: 4Gi
     db:
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
       resources:
         requests:
           cpu: 500m
@@ -29,6 +33,8 @@ spec:
           memory: 2Gi
   scanner:
     analyzer:
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
       scaling:
         autoScaling: Disabled
         replicas: 1

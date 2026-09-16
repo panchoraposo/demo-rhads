@@ -64,7 +64,13 @@ spec:
         fi
         export ROX_INSECURE_CLIENT=true
         echo "--- roxctl image scan ---"
-        export ROX_INSECURE_CLIENT=true
+        if ! roxctl central whoami -e "${ROX_CENTRAL_ADDRESS}" --insecure-skip-tls-verify >/tmp/acs-whoami 2>/tmp/acs-whoami.err; then
+          echo "FAIL: ACS Central API not ready (check stackrox: central/scanner pods Running)."
+          sed 's/^/  /' /tmp/acs-whoami.err || true
+          oc get pods -n stackrox 2>/dev/null | sed 's/^/  /' || true
+          echo '{}' > /reports/image-scan.json
+          exit 1
+        fi
         set +e
         # One scan (json). A second table scan doubles Central/Scanner load and
         # looks like a hang when Central-DB is recovering.
@@ -74,7 +80,7 @@ spec:
           --insecure-skip-tls-verify \
           --retries=10 \
           --retry-delay=6 \
-          -o json > /reports/image-scan.json
+          -o json > /reports/image-scan.json 2>/tmp/acs-scan.err
         json_rc=$?
         if [ "${json_rc}" -eq 0 ] && command -v python3 >/dev/null 2>&1; then
           python3 - <<'PY' || true
@@ -94,6 +100,10 @@ spec:
         echo
         if [ "${json_rc}" -ne 0 ]; then
           echo "WARN: roxctl image scan exited ${json_rc}; SCAN_OUTPUT will still be published."
+          if grep -qiE 'handshake failed|Unavailable desc' /tmp/acs-scan.err 2>/dev/null; then
+            echo "HINT: ACS scanner gRPC failed — check oc get pods -n stackrox (central, central-db, scanner must be Running, not Pending on old node hostnames)."
+            tail -5 /tmp/acs-scan.err | sed 's/^/  /' || true
+          fi
         else
           echo "PASS: ACS image scan completed."
         fi

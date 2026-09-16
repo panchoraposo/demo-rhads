@@ -1,4 +1,28 @@
 ---
+- name: Drop legacy kubernetes.io/hostname pins on Central CR if present
+  ansible.builtin.shell: |
+    set -euo pipefail
+    CTX="{{ oc_context }}"
+    NS="{{ acs_namespace }}"
+    for SELECTOR_PATH in \
+      /spec/central/nodeSelector \
+      /spec/central/db/nodeSelector \
+      /spec/scanner/analyzer/nodeSelector; do
+      HOST=$(oc --context "$CTX" -n "$NS" get central stackrox-central-services -o jsonpath="{${SELECTOR_PATH}.kubernetes.io/hostname}" 2>/dev/null || true)
+      if [ -n "$HOST" ]; then
+        oc --context "$CTX" -n "$NS" patch central stackrox-central-services --type=json \
+          -p="[{\"op\":\"remove\",\"path\":\"${SELECTOR_PATH}\"}]" || true
+      fi
+    done
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Apply RHACS Central from GitOps (cluster-agnostic worker nodeSelector only)
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} apply -f {{ repo_root }}/gitops/components/rhacs/central.yaml
+  changed_when: true
+
 - name: Wait for ACS Central
   ansible.builtin.command:
     cmd: oc --context {{ oc_context }} -n {{ acs_namespace }} rollout status deploy/central --timeout=600s
