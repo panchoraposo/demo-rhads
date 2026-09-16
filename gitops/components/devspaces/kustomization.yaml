@@ -4,5 +4,6 @@ namespace: openshift-devspaces
 resources:
   - namespace.yaml
   - checluster.yaml
+  - devworkspace-container-build-rbac.yaml
   - vscode-editor-configurations.yaml
   - image-prefetch.yaml

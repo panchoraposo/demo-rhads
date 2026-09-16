@@ -1,0 +1,33 @@
+# DevWorkspace provisions Role devworkspace-use-container-build in each workspace
+# namespace when CheCluster devEnvironments.disableContainerBuildCapabilities is false.
+# The controller SA must hold container-build SCC use before it can grant it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rhads-devworkspace-container-build
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+rules:
+  - apiGroups:
+      - security.openshift.io
+    resources:
+      - securitycontextconstraints
+    resourceNames:
+      - container-build
+    verbs:
+      - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rhads-devworkspace-controller-container-build
+  labels:
+    app.kubernetes.io/part-of: rhads-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rhads-devworkspace-container-build
+subjects:
+  - kind: ServiceAccount
+    name: devworkspace-controller-serviceaccount
+    namespace: openshift-operators
