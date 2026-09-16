@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: openshift-devspaces
 resources:
   - namespace.yaml
+  - container-build-scc.yaml
   - checluster.yaml
   - devworkspace-container-build-rbac.yaml
   - vscode-editor-configurations.yaml

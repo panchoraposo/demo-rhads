@@ -42,6 +42,11 @@
     - acs_route.resources | default([]) | length > 0
     - acs_pw_raw.stdout | default('') | length > 0
   failed_when: false
+  retries: 12
+  delay: 30
+  until: >-
+    acs_token.status in [200, 201]
+    or (acs_token.json.token | default('') | length > 0)
 
 - name: Store ACS CI secret
   kubernetes.core.k8s:
@@ -57,7 +62,9 @@
         api-token: "{{ acs_token.json.token | default('') }}"
         central-host: "{{ (acs_route.resources[0].spec.host + ':443') if (acs_route.resources | default([]) | length > 0) else '' }}"
         central-url: "{{ ('https://' + acs_route.resources[0].spec.host) if (acs_route.resources | default([]) | length > 0) else '' }}"
-  when: acs_route.resources | default([]) | length > 0
+  when:
+    - acs_route.resources | default([]) | length > 0
+    - acs_token.json.token | default('') | length > 0
 
 - name: Read Quay dockerconfig for ACS registry integration
   kubernetes.core.k8s_info:

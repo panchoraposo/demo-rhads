@@ -1,3 +1,15 @@
+{{/* Schedule on OpenShift worker nodes (never pin to a hostname). */}}
+{{- define "rhads.workerNodeAffinity" -}}
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: node-role.kubernetes.io/worker
+            operator: Exists
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
+{{- end -}}
+
 {{/*
 Expand the name of the chart.
 */}}

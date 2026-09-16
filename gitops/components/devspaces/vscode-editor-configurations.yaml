@@ -22,5 +22,6 @@ data:
       "redHatDependencyAnalytics.mvn.preferWrapper": "true",
       "redHatDependencyAnalytics.matchManifestVersions": false,
       "redHatDependencyAnalytics.backendUrl": "http://rhda-backend.trusted-profile-analyzer.svc:8080",
-      "maven.executable.preferMavenWrapper": true
+      "maven.executable.preferMavenWrapper": true,
+      "java.jdt.ls.vmargs": "-XX:+UseParallelGC -Dsun.zip.disableMemoryMapping=true -Xms512m -Xmx2G"
     }

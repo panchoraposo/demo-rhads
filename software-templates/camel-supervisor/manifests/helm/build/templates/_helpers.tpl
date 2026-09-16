@@ -8,6 +8,17 @@ app.kubernetes.io/part-of: rhads-demo
 backstage.io/kubernetes-id: {{ include "rhads-build.name" . }}
 {{- end }}
 
+{{- define "rhads.workerNodeAffinity" -}}
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: node-role.kubernetes.io/worker
+            operator: Exists
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
+{{- end -}}
+
 {{- define "image.dev-url" -}}
 {{- if eq .Values.image.registry "Quay" -}}
 {{- printf "%s/%s/%s" .Values.image.host .Values.image.organization .Values.image.name -}}

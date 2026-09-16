@@ -26,15 +26,8 @@ spec:
           podTemplate:
             securityContext:
               fsGroup: 65532
-            # Control-planes are also labeled worker on this cluster. RBD map
-            # fails on some masters (rbd: sysfs write failed); keep PipelineRuns on workers.
             affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
+              {{- include "rhads.workerNodeAffinity" . | nindent 14 }}
         taskRunSpecs:
           - pipelineTaskName: generate-sbom
             metadata:
@@ -111,15 +104,8 @@ spec:
           podTemplate:
             securityContext:
               fsGroup: 65532
-            # Control-planes are also labeled worker on this cluster. RBD map
-            # fails on some masters (rbd: sysfs write failed); keep PipelineRuns on workers.
             affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
+              {{- include "rhads.workerNodeAffinity" . | nindent 14 }}
         taskRunSpecs:
           - pipelineTaskName: acs-check
             metadata:
@@ -179,15 +165,8 @@ spec:
           podTemplate:
             securityContext:
               fsGroup: 65532
-            # Control-planes are also labeled worker on this cluster. RBD map
-            # fails on some masters (rbd: sysfs write failed); keep PipelineRuns on workers.
             affinity:
-              nodeAffinity:
-                requiredDuringSchedulingIgnoredDuringExecution:
-                  nodeSelectorTerms:
-                    - matchExpressions:
-                        - key: node-role.kubernetes.io/control-plane
-                          operator: DoesNotExist
+              {{- include "rhads.workerNodeAffinity" . | nindent 14 }}
         taskRunSpecs:
           - pipelineTaskName: acs-check
             metadata:

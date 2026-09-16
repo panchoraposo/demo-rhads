@@ -5,16 +5,22 @@ metadata:
   description: ${{values.description}}
   tags: [Java, Camel, Kaoto, JBang, MaaS]
   projectType: camel
-attributes:
-  controller.devfile.io/storage-type: per-user
+# Che Code lists devfile commands only when the devfile declares the Git project
+# (see eclipse-che/che#23479). Do not use per-user devfile storage here — it can
+# leave the Tasks > devfile list empty until you restart from the repo copy.
+projects:
+  - name: ${{values.component_id}}
+    git:
+      remotes:
+        origin: https://${{values.host}}/${{values.destination}}
 components:
   - name: tools
     container:
       image: registry.redhat.io/devspaces/udi-rhel9:latest
-      memoryLimit: 8Gi
-      memoryRequest: 1Gi
-      cpuLimit: "4"
-      cpuRequest: "250m"
+      memoryLimit: 10Gi
+      memoryRequest: 2Gi
+      cpuLimit: "6"
+      cpuRequest: "1"
       mountSources: true
       command:
         - /bin/bash
@@ -52,6 +58,8 @@ components:
             cookiesAuthEnabled: "true"
             urlRewriteSupported: "true"
       env:
+        - name: MAVEN_OPTS
+          value: "-Xmx2g"
         - name: CAMEL_VERSION
           value: "4.18.3"
         - name: MAAS_BASE_URL

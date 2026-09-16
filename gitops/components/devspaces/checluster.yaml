@@ -23,16 +23,35 @@ spec:
   devEnvironments:
     defaultEditor: che-incubator/che-code/latest
     disableContainerBuildCapabilities: false
+    # Uses gitops/components/devspaces/container-build-scc.yaml (not shipped on OCP 4.20+).
+    containerBuildConfiguration:
+      openShiftSecurityContextConstraint: container-build
     startTimeoutSeconds: 600
     # Keep the demo workspace warm; first start is dominated by UDI/che-code image pulls.
     secondsOfInactivityBeforeIdling: -1
     secondsOfRunBeforeIdling: -1
     maxNumberOfRunningWorkspacesPerUser: 4
     maxNumberOfWorkspacesPerUser: 8
+    # RHDA + Java LS + Maven need headroom; che-code adds its own editor overhead.
+    defaultContainerResources:
+      limits:
+        memory: 4Gi
+        cpu: "2"
+      requests:
+        memory: 1536Mi
+        cpu: "500m"
+    containerResourceCaps:
+      limits:
+        memory: 12Gi
+        cpu: "8"
+      requests:
+        memory: 8Gi
+        cpu: "4"
     persistUserHome:
       enabled: true
+    # OpenShift worker role (no hostname pins; works on any ephemeral cluster).
     nodeSelector:
-      rhads.demo/workload: apps
+      node-role.kubernetes.io/worker: ""
     storage:
       pvcStrategy: per-user
     defaultNamespace:

@@ -2,18 +2,63 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Camel JBang + MaaS",
+      "label": "devfile: Install JBang + Camel CLI",
       "type": "shell",
-      "command": "${workspaceFolder}/scripts/run-maas.sh",
-      "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "dedicated" }
+      "command": "bash scripts/install-camel-cli.sh",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
     },
     {
-      "label": "Camel JBang + Ollama",
+      "label": "devfile: Open Kaoto canvas (03-workflow.camel.yaml)",
+      "type": "shell",
+      "command": "echo 'Open integrations/03-workflow.camel.yaml → Open with Kaoto (or palette: Kaoto).'",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "devfile: Camel JBang + MaaS (fleet UI on 8080)",
+      "type": "shell",
+      "command": "bash -c 'export PATH=\"$HOME/.jbang/bin:$PATH\"; unset DISPLAY; export JAVA_TOOL_OPTIONS=\"-Djava.awt.headless=true${JAVA_TOOL_OPTIONS:+ ${JAVA_TOOL_OPTIONS}}\"; bash .devcontainer/setup-maas.sh; ./scripts/run-maas.sh'",
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "devfile: Write .env for Red Hat MaaS",
+      "type": "shell",
+      "command": "bash .devcontainer/setup-maas.sh",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "devfile: Maven package (Nexus)",
+      "type": "shell",
+      "command": "./mvnw -s .mvn/settings.xml -DskipTests package",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "devfile: Configure Sigstore git commit signing",
+      "type": "shell",
+      "command": "bash .devcontainer/setup-gitsign.sh",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "devfile: Verify Sigstore-signed HEAD",
+      "type": "shell",
+      "command": "bash .devcontainer/verify-gitsign.sh",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Camel JBang + Ollama (local)",
       "type": "shell",
       "command": "${workspaceFolder}/scripts/run-local.sh",
-      "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "dedicated" }
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
     }
   ]
 }

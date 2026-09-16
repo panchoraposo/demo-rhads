@@ -1,6 +1,7 @@
 # DevWorkspace provisions Role devworkspace-use-container-build in each workspace
-# namespace when CheCluster devEnvironments.disableContainerBuildCapabilities is false.
-# The controller SA must hold container-build SCC use before it can grant it.
+# namespace when disableContainerBuildCapabilities is false. The SCC name comes from
+# CheCluster devEnvironments.containerBuildConfiguration (container-build SCC).
+# The controller SA must hold that SCC "use" before it can grant workspace SAs.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

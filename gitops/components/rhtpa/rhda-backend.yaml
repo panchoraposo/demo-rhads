@@ -74,6 +74,8 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
+                  - key: node-role.kubernetes.io/worker
+                    operator: Exists
                   - key: node-role.kubernetes.io/control-plane
                     operator: DoesNotExist
       serviceAccountName: postgresql
@@ -148,6 +150,8 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
+                  - key: node-role.kubernetes.io/worker
+                    operator: Exists
                   - key: node-role.kubernetes.io/control-plane
                     operator: DoesNotExist
       containers:
@@ -205,6 +209,8 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
+                  - key: node-role.kubernetes.io/worker
+                    operator: Exists
                   - key: node-role.kubernetes.io/control-plane
                     operator: DoesNotExist
       initContainers:
@@ -240,10 +246,11 @@ spec:
               containerPort: 9000
           resources:
             requests:
-              cpu: 100m
-              memory: 512Mi
-            limits:
+              cpu: 250m
               memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
           env:
             - name: DB_REDIS_HOST
               value: rhda-backend-redis

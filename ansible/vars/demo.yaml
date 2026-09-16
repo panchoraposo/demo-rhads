@@ -5,6 +5,9 @@
 
 # oc_context is discovered from `oc config current-context` unless overridden
 # with -e oc_context=<name>.
+#
+# Pod scheduling: use OpenShift node-role labels only (no kubernetes.io/hostname).
+# Worker-only affinity: node-role.kubernetes.io/worker Exists + control-plane DoesNotExist.
 storage_class: ocs-external-storagecluster-ceph-rbd
 validate_ssl_certs: false
 common_user_password: "backstage"

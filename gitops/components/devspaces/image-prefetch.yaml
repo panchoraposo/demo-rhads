@@ -20,9 +20,15 @@ spec:
         app.kubernetes.io/name: rhads-devspaces-image-prefetch
         app.kubernetes.io/part-of: rhads-demo
     spec:
-      nodeSelector:
-        rhads.demo/workload: apps
-      # Control planes are also workers in this lab; prefetch on app nodes first.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/worker
+                    operator: Exists
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       tolerations:
         - operator: Exists
       initContainers:

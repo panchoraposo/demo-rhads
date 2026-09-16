@@ -5,13 +5,19 @@ metadata:
   description: ${{values.description}}
   tags: [Java, Quarkus, Maven]
   projectType: quarkus
-attributes:
-  controller.devfile.io/storage-type: per-user
+projects:
+  - name: ${{values.component_id}}
+    git:
+      remotes:
+        origin: https://${{values.host}}/${{values.destination}}
 components:
   - name: tools
     container:
       image: registry.redhat.io/devspaces/udi-rhel9:latest
-      memoryLimit: 3Gi
+      memoryLimit: 8Gi
+      memoryRequest: 1536Mi
+      cpuLimit: "4"
+      cpuRequest: "500m"
       mountSources: true
       endpoints:
         - name: quarkus-dev
