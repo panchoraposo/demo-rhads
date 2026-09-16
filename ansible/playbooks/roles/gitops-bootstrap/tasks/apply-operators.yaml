@@ -5,6 +5,12 @@
   register: apply_ops
   changed_when: "'created' in apply_ops.stdout or 'configured' in apply_ops.stdout"
 
+- name: Drop ODF Multicluster Orchestrator subscription (not used by RHADS)
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n openshift-operators delete subscription odf-multicluster-orchestrator --ignore-not-found
+  failed_when: false
+  changed_when: true
+
 - name: Install RHBK when the cluster has no SSO Keycloak
   when: rhads_manage_keycloak | default(true) | bool
   block:
@@ -42,7 +48,6 @@
     - { ns: openshift-operators, match: devspaces }
     - { ns: openshift-storage, match: odf-operator }
     - { ns: openshift-storage, match: mcg-operator }
-    - { ns: openshift-operators, match: odf-multicluster-orchestrator }
     - { ns: external-secrets-operator, match: external-secrets-operator }
   loop_control:
     loop_var: csv

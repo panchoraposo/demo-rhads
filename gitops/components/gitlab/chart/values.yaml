@@ -91,6 +91,7 @@ gitlab:
         enabled: true
         storageClass: "ocs-external-storagecluster-ceph-rbd"
         size: 5Gi
+  # Upstream GitLab chart key; keep disabled (object storage is not part of this demo).
   minio:
     enabled: false
 

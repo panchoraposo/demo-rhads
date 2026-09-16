@@ -93,7 +93,7 @@ flowchart LR
   ACD --> PRD
 ```
 
-Object storage is **OpenShift Data Foundation Multicloud Object Gateway** (NooBaa) plus the **ODF Multicluster Orchestrator**. Quay and TPA use ObjectBucketClaims. There is no MinIO.
+Object storage is **OpenShift Data Foundation Multicloud Object Gateway** (NooBaa). Quay uses an ObjectBucketClaim; TPA uses filesystem storage on RBD plus an optional OBC for future S3 use.
 
 ## Identity and OIDC
 
@@ -189,4 +189,4 @@ RHDA in VS Code posts to the in-cluster **RHDA backend**, which queries this clu
 
 ## Resources (single-node sandbox)
 
-Clair disabled, ACS scanner at 1 replica, TPA without tracing/metrics, GitLab all-in-one. Block storage: `gp3-csi`. Object storage: ODF MCG (NooBaa) + MCO; Quay and TPA use ObjectBucketClaims.
+Clair disabled, ACS scanner at 1 replica, TPA without tracing/metrics, GitLab all-in-one. Block storage: `gp3-csi`. Object storage: ODF MCG (NooBaa); Quay uses ObjectBucketClaims.

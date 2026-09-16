@@ -18,7 +18,7 @@ Stack validated against the OpenShift catalog (OCP **4.20.33**):
 | Quay | `stable-3.17` → 3.17.4 |
 | Red Hat build of Keycloak | `stable-v26.6` → 26.6.6 |
 | GitLab Community | `docker.io/gitlab/gitlab-ce:19.3.0-ce.0` (omnibus) |
-| OpenShift Data Foundation | MCG (NooBaa) + Multicluster Orchestrator |
+| OpenShift Data Foundation | MCG (NooBaa) for ObjectBucketClaims |
 | Conforma | CLI in the promotion pipeline |
 | External Secrets Operator | `stable-v1` (Red Hat) |
 | HashiCorp Vault | `1.19.5` (in-cluster KV + Kubernetes auth) |
@@ -45,7 +45,7 @@ Details: [docs/architecture.md](docs/architecture.md). Live script: [docs/demo-s
 ## Prerequisites
 
 - OpenShift **4.20+** with `cluster-admin` (typical sandbox: **16 CPU / 64 Gi**).
-- Storage class **`gp3-csi`**. Object storage is **ODF Multicloud Object Gateway** (NooBaa), not MinIO.
+- Storage class **`gp3-csi`**. Object storage is **ODF Multicloud Object Gateway** (NooBaa) via ObjectBucketClaims.
 - `oc` logged in to the target cluster. `python3`. Helm 3 is installed by `install.sh` if missing.
 - Cluster pull access to `registry.redhat.io` (usual OpenShift pull secret).
 
@@ -63,8 +63,8 @@ oc login --server=https://api.<cluster> --token=...
 The playbook:
 
 1. Discovers the cluster domain (`apps.<baseDomain>`).
-2. Installs OpenShift GitOps and applies RHADS operators with kustomize (including ODF + MCO).
-3. Deploys GitLab CE, Keycloak, **ODF (MCG + MCO)**, Quay, RHTAS, TPA, ACS, Pipelines, **Nexus**, **Vault**, **External Secrets Operator**, Dev Spaces, and Developer Hub.
+2. Installs OpenShift GitOps and applies RHADS operators with kustomize (including ODF MCG when the cluster has no StorageCluster).
+3. Deploys GitLab CE, Keycloak, **ODF (NooBaa)**, Quay, RHTAS, TPA, ACS, Pipelines, **Nexus**, **Vault**, **External Secrets Operator**, Dev Spaces, and Developer Hub.
 4. Creates **developers** (`dev1-3`) and **platform-engineers** (`pe1-3`) groups, password `backstage`.
 5. Publishes **this working tree** to GitLab (`platform-engineers/rhads-platform`) and points Argo CD at it. Software templates get the live GitLab/Quay hostnames.
 6. Seeds TPA with a small OSV advisory set so RHDA/SBOMs show CVEs without waiting for full feed importers.

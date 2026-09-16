@@ -42,7 +42,6 @@
           - backstage
           - keycloak
           - quay
-          - minio
           - openshift-storage
           - trusted-artifact-signer
           - trusted-profile-analyzer

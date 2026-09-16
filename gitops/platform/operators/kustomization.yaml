@@ -34,4 +34,3 @@ resources:
   - subscription-rhtas.yaml
   - subscription-rhtpa.yaml
   - subscription-rhacs.yaml
-  - subscription-odf-mco.yaml

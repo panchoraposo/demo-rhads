@@ -1,16 +1,4 @@
 ---
-- name: Remove leftover MinIO GitOps app (object storage is ODF MCG / NooBaa)
-  ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} -n {{ gitops_namespace }} delete application rhads-minio --ignore-not-found
-  failed_when: false
-  changed_when: true
-
-- name: Remove leftover MinIO namespace
-  ansible.builtin.command:
-    cmd: oc --context {{ oc_context }} delete namespace minio --ignore-not-found --wait=false
-  failed_when: false
-  changed_when: true
-
 - name: Apply ODF StorageCluster when the cluster has none
   ansible.builtin.command:
     cmd: oc --context {{ oc_context }} apply -f {{ repo_root }}/gitops/components/odf/storagecluster.yaml
