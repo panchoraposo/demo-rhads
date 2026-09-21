@@ -11,7 +11,7 @@ Miles of Smiles **step 05** from [quarkus-langchain-agentic](https://github.com/
 3. Command palette → **Quarkus dev (fleet UI + Dev UI on 8080)**. That step selects **JDK 21** (the UDI default is 17; compiling `release` 21 with 17 fails). The first run is slow (Temurin 21 if missing, Maven deps, Quarkus augmentation). Later runs skip the JDK download.
 4. Open **PORTS** (or **Endpoints**) → **fleet-ui**, not only the in-IDE Simple Browser. The Simple Browser URL looks like `/admin/<workspace>/8080/` and used to miss CSS/API because those were rooted at `/`. The UI now prefixes that path; a full browser tab on **fleet-ui** is still the reliable demo URL.
    - **fleet-ui** → car grid (`/`)
-   - **quarkus-dev-ui** → `/q/dev-ui`
+   - **quarkus-dev-ui** → `/q/dev-ui` (needs the Dev Spaces task so `QUARKUS_DEV_UI_CONTEXT_ROOT` is set; otherwise you only see the blue Quarkus splash)
    - **swagger-ui** → `/q/swagger-ui`
 
 Return a Mercedes / BMW / Audi / Civic (`RENTED`) with a totaled/collision prompt. Agents (intake, pricing, proposal) still run on MaaS; Java only **forces** the human pause. **Approval Needed** shows the LLM recommendation. Keep or dispose from that button.

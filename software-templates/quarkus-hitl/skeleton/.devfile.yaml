@@ -136,7 +136,11 @@ commands:
         # shellcheck disable=SC1091
         . .devcontainer/setup-java.sh
         bash .devcontainer/setup-maas.sh
-        echo "Open PORTS → fleet-ui (public URL). Simple Browser /admin/<ws>/8080/ works after a reload."
+        # Dev Spaces path proxy: /<user>/<workspace>/8080 — Dev UI needs this or assets 404 at /
+        USER_SEG="${DEVWORKSPACE_NAMESPACE%-devspaces}"
+        export QUARKUS_DEV_UI_CONTEXT_ROOT="/${USER_SEG}/${DEVWORKSPACE_NAME}/8080"
+        echo "Dev UI context root: ${QUARKUS_DEV_UI_CONTEXT_ROOT}"
+        echo "Open PORTS → fleet-ui / quarkus-dev-ui (or Simple Browser …/8080/q/dev-ui/)."
         ./mvnw -s .mvn/settings.xml quarkus:dev -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -Dquarkus.test.continuous-testing=disabled -Dquarkus.analytics.disabled=true
       workingDir: ${PROJECT_SOURCE}
 # postStart is omitted so the IDE becomes ready as soon as the UDI is up.
