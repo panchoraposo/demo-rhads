@@ -103,6 +103,8 @@ spec:
           value: $(params.TUF_URL)
         - name: FULCIO_URL
           value: $(params.FULCIO_URL)
+        - name: STRICT
+          value: $(params.STRICT)
         - name: GIT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -206,7 +208,11 @@ spec:
               echo "PASS: commit is Sigstore-signed (Fulcio identity recorded in Rekor)."
             else
               NOTE="gitsign verify exited ${verify_rc}"
-              echo "FAIL: commit is NOT gitsign-signed (${NOTE})."
+              if [ "${STRICT:-false}" = "true" ]; then
+                echo "FAIL: commit is NOT gitsign-signed (${NOTE}). Promotion requires a valid gitsign signature."
+              else
+                echo "WARN: commit is NOT gitsign-signed (${NOTE}). Dev continues; staging and production promotion will require a valid signature."
+              fi
               git log -1 --show-signature || true
             fi
           fi
@@ -216,7 +222,7 @@ spec:
         printf '%s\n' "${NOTE}" > /reports/source-note
         if grep -q 'name: RHADS source' /policy/policy.yaml; then
           echo "RHADS source already present in policy.yaml"
-        else
+        elif [ "${STRICT:-false}" = "true" ]; then
           {
             echo "  - name: RHADS source"
             echo "    policy:"
@@ -229,8 +235,11 @@ spec:
             echo "      include:"
             echo "        - \"*\""
           } >> /policy/policy.yaml
+          echo "Wrote rhads_source.git_commit_signed ruleData source_git_signed=${SIGNED} (STRICT promotion)"
+        else
+          echo "STRICT!=true — git commit signature is not a dev gate (enforced on staging/prod promotion)."
         fi
-        echo "Wrote rhads_source.git_commit_signed ruleData source_git_signed=${SIGNED}"
+        chmod -R a+rX /policy /reports
       volumeMounts:
         - name: policy
           mountPath: /policy
@@ -277,9 +286,11 @@ spec:
         echo "Signed:   ${SIGNED}  (${NOTE})"
         if [ "${SIGNED}" = "true" ]; then
           echo "PASS: source git commit is Sigstore-signed with gitsign (RHTAS Fulcio + Rekor)."
-        else
+        elif [ "${STRICT}" = "true" ]; then
           echo "FAIL: source git commit ${REV} is not Sigstore-signed (gitsign / RHTAS Fulcio + Rekor)."
-          echo "Unsigned scaffold commits cannot be promoted. Sign from Dev Spaces, push, and tag the signed commit."
+          echo "Unsigned commits cannot be promoted to staging or production."
+        else
+          echo "WARN: source git commit ${REV} is not Sigstore-signed. Dev continues; staging and production promotion will require a valid gitsign signature."
         fi
         echo
         if [ -z "${TUF_URL}" ]; then
@@ -347,7 +358,7 @@ spec:
           echo '{}' > /reports/ec.json
         fi
         source_fail=0
-        if [ "${SIGNED}" != "true" ]; then
+        if [ "${STRICT}" = "true" ] && [ "${SIGNED}" != "true" ]; then
           source_fail=1
         fi
         if [ "${rc}" -eq 0 ] && [ "${json_rc}" -eq 0 ] && [ "${source_fail}" -eq 0 ]; then
