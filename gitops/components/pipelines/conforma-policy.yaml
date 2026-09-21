@@ -8,21 +8,20 @@ metadata:
 data:
   # Documented collections: https://conforma.dev/docs/policy/release_policy.html
   # Config sources: github.com/conforma/config//{redhat,redhat-no-hermetic,slsa3}
-  # git_commit_signed.rego is appended at runtime by rhads-conforma-verify with
-  # ruleData.source_git_signed from gitsign (RHTAS Fulcio + Rekor + TUF).
+  # Git commit signature is enforced by rhads-conforma-verify (gitsign verify)
+  # when STRICT=true. Do not inject a second Conforma source for it: a local
+  # file:/// policy source makes ec report "no successes, warnings, or failures".
   policy.yaml: |
     ---
-    name: Red Hat + SLSA3 + signed source
+    name: Red Hat + SLSA3
     description: >
       Official Conforma collections @redhat and @slsa3
       (https://conforma.dev/docs/policy/release_policy.html,
-      github.com/conforma/config//{redhat,slsa3}), plus RHADS
-      rhads_source.git_commit_signed (gitsign / RHTAS). Hermetic/prefetch
+      github.com/conforma/config//{redhat,slsa3}). Hermetic/prefetch
       excludes match github.com/conforma/config//redhat-no-hermetic
       because this demo builds with OpenShift Builds and Nexus, not
-      Konflux hermetic builds. Unsigned scaffold commits may land in
-      dev (STRICT=false) so TPA gets the first SBOM; staging/prod
-      STRICT promotion is denied until the tagged commit is signed.
+      Konflux hermetic builds. Git commit signatures are gated by the
+      Tekton task (STRICT=false on dev, STRICT=true on staging/prod).
     sources:
       - name: Default
         policy:
@@ -52,9 +51,15 @@ data:
             - attestation_type.pipelinerun_attestation_found
             - source_image
             - labels.required_labels
+            # SBOM is generated and uploaded to TPA; Conforma expects Konflux-style
+            # SBOM/base-image attestations that OpenShift Builds do not produce.
+            - sbom.found
+            - sbom_cyclonedx.found
+            - base_image_registries.base_image_info_found
         ruleData:
           allowed_builder_ids:
             - https://tekton.dev/chains/v2
+  # Kept for documentation / future EC embedding; the task enforces this in bash.
   git_commit_signed.rego: |
     package policy.release.rhads_source
 

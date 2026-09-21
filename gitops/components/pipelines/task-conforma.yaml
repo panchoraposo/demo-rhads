@@ -119,7 +119,7 @@ spec:
         echo "============================================================"
         echo "[SSSC] Conforma input: Sigstore git commit signature"
         echo "Control: gitsign verify of the tagged/built commit (RHTAS Fulcio + Rekor + TUF)."
-        echo "         STRICT promotion injects rhads_source.git_commit_signed into Enterprise Contract."
+        echo "         STRICT promotion fails the task when the commit is not gitsign-signed."
         echo "============================================================"
         # shellcheck disable=SC1091
         source /policy/source.env
@@ -220,26 +220,18 @@ spec:
         printf '%s\n' "${SIGNED}" > /reports/source-signed
         printf '%s\n' "${GIT_REVISION}" > /reports/source-revision
         printf '%s\n' "${NOTE}" > /reports/source-note
-        if grep -q 'name: RHADS source' /policy/policy.yaml; then
-          echo "RHADS source already present in policy.yaml"
-        elif [ "${STRICT:-false}" = "true" ]; then
-          {
-            echo "  - name: RHADS source"
-            echo "    policy:"
-            echo "      - file:///policy/rhads"
-            echo "    ruleData:"
-            echo "      source_git_signed: ${SIGNED}"
-            echo "      source_git_revision: \"${GIT_REVISION}\""
-            echo "      source_git_repo: \"${SOURCE_REPO}\""
-            echo "    config:"
-            echo "      include:"
-            echo "        - \"*\""
-          } >> /policy/policy.yaml
-          echo "Wrote rhads_source.git_commit_signed ruleData source_git_signed=${SIGNED} (STRICT promotion)"
+        # Keep /policy readable by the non-root Conforma CLI. Do not inject a
+        # second EC source for the git signature: file:/// local sources make
+        # current Conforma CLI return "no successes, warnings, or failures".
+        if [ "${STRICT:-false}" = "true" ]; then
+          echo "STRICT=true — unsigned commits are blocked by this task after ec validate."
         else
           echo "STRICT!=true — git commit signature is not a dev gate (enforced on staging/prod promotion)."
         fi
         chmod -R a+rX /policy /reports
+        # Writable copy for the conforma step (root-owned files are not overwritable).
+        cp /policy/policy.yaml /reports/ec-policy.yaml
+        chmod a+rw /reports/ec-policy.yaml
       volumeMounts:
         - name: policy
           mountPath: /policy
@@ -273,8 +265,8 @@ spec:
         NOTE="$(cat /reports/source-note 2>/dev/null || echo "")"
         echo "============================================================"
         echo "[SSSC] Conforma / Enterprise Contract (${ENVIRONMENT})"
-        echo "Control: policy-as-code — documented @redhat + @slsa3 collections"
-        echo "         plus rhads_source.git_commit_signed (gitsign / RHTAS)."
+        echo "Control: policy-as-code — documented @redhat + @slsa3 collections."
+        echo "         Git commit signature is gated by this task (gitsign / RHTAS)."
         echo "Image:  ${IMAGE}"
         echo "Rekor:  ${REKOR_URL}"
         echo "STRICT: ${STRICT}  (true = promotion gate; false = report only on dev)"
@@ -288,7 +280,8 @@ spec:
           echo "PASS: source git commit is Sigstore-signed with gitsign (RHTAS Fulcio + Rekor)."
         elif [ "${STRICT}" = "true" ]; then
           echo "FAIL: source git commit ${REV} is not Sigstore-signed (gitsign / RHTAS Fulcio + Rekor)."
-          echo "Unsigned commits cannot be promoted to staging or production."
+          echo "Unsigned scaffold commits from Developer Hub cannot be promoted."
+          echo "Sign from Dev Spaces, push, then tag/release that signed commit."
         else
           echo "WARN: source git commit ${REV} is not Sigstore-signed. Dev continues; staging and production promotion will require a valid gitsign signature."
         fi
@@ -299,12 +292,30 @@ spec:
         echo "TUF:    ${TUF_URL}"
         export TUF_MIRROR="${TUF_URL}"
         export SIGSTORE_TUF_MIRROR="${TUF_URL}"
-        if [ ! -f /policy/policy.yaml ]; then
+        POLICY_FILE="/reports/ec-policy.yaml"
+        if [ ! -f "${POLICY_FILE}" ] && [ -f /policy/policy.yaml ]; then
+          cp /policy/policy.yaml "${POLICY_FILE}" || true
+        fi
+        if [ ! -f "${POLICY_FILE}" ]; then
           echo "FAIL: ConfigMap rhads-conforma-policy is not mounted"
           exit 1
         fi
+        # Prefer Tekton-injected Quay pull credentials when present.
+        if [ -z "${DOCKER_CONFIG:-}" ]; then
+          for d in /tekton/creds /.docker /tmp/.docker; do
+            if [ -f "${d}/config.json" ] || [ -f "${d}/.dockerconfigjson" ]; then
+              export DOCKER_CONFIG="${d}"
+              break
+            fi
+          done
+        fi
+        mkdir -p /tmp/.docker
+        if [ -n "${DOCKER_CONFIG:-}" ] && [ -f "${DOCKER_CONFIG}/.dockerconfigjson" ] && [ ! -f "${DOCKER_CONFIG}/config.json" ]; then
+          cp "${DOCKER_CONFIG}/.dockerconfigjson" /tmp/.docker/config.json
+          export DOCKER_CONFIG=/tmp/.docker
+        fi
         echo "--- policy.yaml ---"
-        cat /policy/policy.yaml
+        cat "${POLICY_FILE}"
         echo
         # Image .sig from the pipeline may still be key-based. Chains SLSA
         # provenance is keyless (Fulcio identity of tekton-chains-controller).
@@ -326,30 +337,14 @@ spec:
         ec validate image \
           --image "${IMAGE}" \
           --rekor-url "${REKOR_URL}" \
-          --policy /policy/policy.yaml \
+          --policy "${POLICY_FILE}" \
           "${extra[@]}" \
           --output json > /reports/ec.json
         json_rc=$?
-        if grep -qiE 'unable to load|no such file|failed to fetch policy|error compiling' /reports/ec.json 2>/dev/null \
-          || [ ! -s /reports/ec.json ]; then
-          echo "WARN: policy with RHADS source failed to evaluate; retrying @redhat + @slsa3 only."
-          # Drop the injected source group (everything from the RHADS list item).
-          awk 'BEGIN{p=1} /name: RHADS source/{p=0} p' /policy/policy.yaml > /tmp/policy-no-rhads.yaml
-          if [ -s /tmp/policy-no-rhads.yaml ]; then
-            cp /tmp/policy-no-rhads.yaml /policy/policy.yaml
-          fi
-          ec validate image \
-            --image "${IMAGE}" \
-            --rekor-url "${REKOR_URL}" \
-            --policy /policy/policy.yaml \
-            "${extra[@]}" \
-            --output json > /reports/ec.json
-          json_rc=$?
-        fi
         ec validate image \
           --image "${IMAGE}" \
           --rekor-url "${REKOR_URL}" \
-          --policy /policy/policy.yaml \
+          --policy "${POLICY_FILE}" \
           "${extra[@]}" \
           --output text
         rc=$?
@@ -363,7 +358,7 @@ spec:
         fi
         if [ "${rc}" -eq 0 ] && [ "${json_rc}" -eq 0 ] && [ "${source_fail}" -eq 0 ]; then
           echo
-          echo "PASS: Conforma @redhat + @slsa3 + rhads_source.git_commit_signed satisfied for ${ENVIRONMENT}."
+          echo "PASS: Conforma @redhat + @slsa3 and git commit signature satisfied for ${ENVIRONMENT}."
           exit 0
         fi
         echo
