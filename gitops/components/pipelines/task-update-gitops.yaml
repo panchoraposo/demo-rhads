@@ -114,4 +114,14 @@ spec:
         git commit -m "promote ${COMPONENT} to ${OVERLAY} tag ${IMAGE_TAG}"
         git push origin "HEAD:${GITOPS_REVISION}"
         echo
-        echo "PASS: GitOps ${OVERLAY} now references ${IMAGE}. Argo CD will sync the namespace."
+        echo "PASS: GitOps ${OVERLAY} now references ${IMAGE}."
+        # Kick Argo CD immediately so Topology/CD update without waiting for the poll interval.
+        APP="${COMPONENT}-${OVERLAY}"
+        if oc -n openshift-gitops get application "${APP}" >/dev/null 2>&1; then
+          oc -n openshift-gitops annotate application "${APP}" \
+            argocd.argoproj.io/refresh=hard --overwrite >/dev/null || true
+          echo "Triggered Argo CD hard refresh for application/${APP}."
+        else
+          echo "WARN: application/${APP} not found in openshift-gitops yet (bootstrap may still be syncing)."
+        fi
+        echo "Argo CD will sync the ${OVERLAY} namespace."
