@@ -199,7 +199,14 @@ spec:
               "${GITSIGN_BIN}" initialize --mirror "${TUF_URL}" --root "${ROOT_FILE}"
             fi
             echo "--- gitsign verify HEAD ---"
-            "${GITSIGN_BIN}" verify HEAD
+            # Keyless verify needs the Dev Spaces Fulcio identity + Keycloak issuer.
+            apps_host="${FULCIO_URL#https://fulcio-server-trusted-artifact-signer.}"
+            apps_host="${apps_host#http://fulcio-server-trusted-artifact-signer.}"
+            OIDC_ISSUER="https://sso.${apps_host}/realms/backstage"
+            echo "OIDC issuer: ${OIDC_ISSUER}"
+            "${GITSIGN_BIN}" verify HEAD \
+              --certificate-identity-regexp '.*@rhads\.demo$' \
+              --certificate-oidc-issuer "${OIDC_ISSUER}"
             verify_rc=$?
             set -e
             if [ "${verify_rc}" -eq 0 ]; then
@@ -213,7 +220,7 @@ spec:
               else
                 echo "WARN: commit is NOT gitsign-signed (${NOTE}). Dev continues; staging and production promotion will require a valid signature."
               fi
-              git log -1 --show-signature || true
+              git log -1 --show-signature 2>/dev/null || git cat-file -p HEAD | sed -n '1,40p' || true
             fi
           fi
         fi
