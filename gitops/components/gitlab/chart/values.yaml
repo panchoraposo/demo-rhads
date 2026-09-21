@@ -68,7 +68,6 @@ gitlab:
   gitaly:
     persistence:
       enabled: true
-      storageClass: "ocs-external-storagecluster-ceph-rbd"
       size: 50Gi
   unicorn:
     enabled: true
@@ -89,7 +88,6 @@ gitlab:
     master:
       persistence:
         enabled: true
-        storageClass: "ocs-external-storagecluster-ceph-rbd"
         size: 5Gi
   # Upstream GitLab chart key; keep disabled (object storage is not part of this demo).
   minio:
@@ -103,7 +101,6 @@ postgresql:
   dbName: gitlab_production
   persistence:
     enabled: true
-    storageClass: "ocs-external-storagecluster-ceph-rbd"
     size: 10Gi
 
 

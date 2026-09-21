@@ -49,7 +49,6 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  storageClassName: ocs-external-storagecluster-ceph-rbd
 ---
 apiVersion: apps/v1
 kind: Deployment

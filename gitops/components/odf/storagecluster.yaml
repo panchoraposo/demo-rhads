@@ -1,5 +1,5 @@
 # MCG-only StorageCluster: S3-compatible object storage without Ceph OSDs.
-# Suitable for a single-node demo. Backed by the cluster's default RBD class.
+# NooBaa DB uses the cluster default StorageClass (do not pin a Ceph class name).
 apiVersion: ocs.openshift.io/v1
 kind: StorageCluster
 metadata:
@@ -12,7 +12,6 @@ spec:
   resourceProfile: lean
   multiCloudGateway:
     reconcileStrategy: standalone
-    dbStorageClassName: ocs-external-storagecluster-ceph-rbd
     disableLoadBalancerService: true
   resources:
     noobaa-core:
