@@ -61,10 +61,12 @@ spec:
                   generateSigningSecret: false
                   builder.id: https://tekton.dev/chains/v2
                   artifacts.taskrun.format: in-toto
-                  artifacts.taskrun.storage: "oci,tekton"
+                  # OCI only: deep-inspection PipelineRun attestations exceed the
+                  # 256KiB Kubernetes annotation limit when also stored as tekton.
+                  artifacts.taskrun.storage: "oci"
                   artifacts.taskrun.signer: x509
                   artifacts.pipelinerun.format: in-toto
-                  artifacts.pipelinerun.storage: "oci,tekton"
+                  artifacts.pipelinerun.storage: "oci"
                   artifacts.pipelinerun.signer: x509
                   artifacts.pipelinerun.enable-deep-inspection: "true"
                   artifacts.oci.format: simplesigning
