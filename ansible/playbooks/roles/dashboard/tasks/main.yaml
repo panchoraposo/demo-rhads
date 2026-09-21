@@ -40,6 +40,13 @@
   register: acs_route_res
   failed_when: false
 
+- name: Collect ACS admin password
+  ansible.builtin.command:
+    cmd: oc --context {{ oc_context }} -n {{ acs_namespace }} extract secret/central-htpasswd --to=- --keys=password
+  register: acs_pass_cmd
+  changed_when: false
+  failed_when: false
+
 - name: Set dashboard facts
   ansible.builtin.set_fact:
     dash_argocd_url: "https://{{ argocd_route_res.resources[0].spec.host if (argocd_route_res.resources | length > 0) else ('openshift-gitops-server-openshift-gitops.' + openshift_base_domain) }}"
@@ -56,6 +63,7 @@
     dash_vault_url: "https://{{ vault_route_res.resources[0].spec.host if (vault_route_res.resources | default([]) | length > 0) else ('vault-vault.' + openshift_base_domain) }}/"
     dash_kc_pass: "{{ (kc_secret_res.resources[0].data.password | b64decode) if (kc_secret_res.resources | length > 0) else '' }}"
     dash_argocd_pass: "{{ argocd_pass_cmd.stdout | default('') }}"
+    dash_acs_pass: "{{ acs_pass_cmd.stdout | default('') }}"
 
 - name: Create dashboard namespace
   kubernetes.core.k8s:

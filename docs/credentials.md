@@ -15,7 +15,7 @@ Developer and platform users authenticate through Keycloak realm **`backstage`**
 | TPA (realm `trustify`) | `tpa-admin` | `backstage` |
 | Keycloak master | `temp-admin` | secret `keycloak/keycloak-initial-admin` |
 | Argo CD | `admin` | secret `openshift-gitops/openshift-gitops-cluster` |
-| ACS | `admin` | secret `stackrox/central-htpasswd` |
+| ACS | `admin` | from secret `stackrox/central-htpasswd` key `password` (shown on the install dashboard) |
 | Vault root token | — | secret `vault/vault-init` |
 
 TPA API clients used by the pipeline and RHDA backend: Keycloak realm `trustify`, client `cli` (seeded at install). Do not treat demo passwords as production secrets.
