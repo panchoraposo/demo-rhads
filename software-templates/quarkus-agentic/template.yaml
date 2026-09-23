@@ -69,6 +69,7 @@ spec:
             host:
               title: GitLab host
               type: string
+              description: Hostname only (no https://). The scaffolder matches this against RHDH integrations.gitlab.host.
               default: GITLAB_HOST_PLACEHOLDER
         gitlab_group:
           title: GitLab group
@@ -89,7 +90,7 @@ spec:
           java_package_name: ${{ parameters.java_package_name }}
           owner: ${{ parameters.owner }}
           gitlab_group: ${{ parameters.gitlab_group }}
-          host: ${{ parameters.repo.host }}
+          host: ${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}
           destination: ${{ parameters.gitlab_group }}/${{ parameters.component_id }}
           gitops_namespace: openshift-gitops
           cluster_subdomain: CLUSTER_SUBDOMAIN_PLACEHOLDER
@@ -100,7 +101,7 @@ spec:
       name: Publish source to GitLab
       action: publish:gitlab
       input:
-        repoUrl: "${{ parameters.repo.host }}?owner=${{ parameters.gitlab_group }}&repo=${{ parameters.component_id }}"
+        repoUrl: "${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}?owner=${{ parameters.gitlab_group }}&repo=${{ parameters.component_id }}"
         repoVisibility: public
         defaultBranch: main
         sourcePath: ./${{ parameters.gitlab_group }}-${{ parameters.component_id }}
@@ -119,8 +120,8 @@ spec:
         url: ./manifests
         values:
           component_id: ${{ parameters.component_id }}
-          source_repository_gitops: https://${{ parameters.repo.host }}/${{ parameters.owner }}/${{ parameters.component_id }}-gitops.git
-          source_repository: https://${{ parameters.repo.host }}/${{ parameters.gitlab_group }}/${{ parameters.component_id }}.git
+          source_repository_gitops: https://${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}/${{ parameters.owner }}/${{ parameters.component_id }}-gitops.git
+          source_repository: https://${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}/${{ parameters.gitlab_group }}/${{ parameters.component_id }}.git
           owner: ${{ parameters.owner }}
           namespace: ${{ parameters.component_id }}-dev
           image_registry: ${{ parameters.image_registry }}
@@ -133,7 +134,7 @@ spec:
           gitops_project: default
           port: 8080
           cluster_subdomain: CLUSTER_SUBDOMAIN_PLACEHOLDER
-          repository_host: ${{ parameters.repo.host }}
+          repository_host: ${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}
           dockerfile: ./src/main/docker/Dockerfile.jvm
           build_language: maven
         targetPath: ./${{ parameters.owner }}-${{ parameters.component_id }}-gitops
@@ -141,7 +142,7 @@ spec:
       name: Publish GitOps repository
       action: publish:gitlab
       input:
-        repoUrl: "${{ parameters.repo.host }}?owner=${{ parameters.owner }}&repo=${{ parameters.component_id }}-gitops"
+        repoUrl: "${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}?owner=${{ parameters.owner }}&repo=${{ parameters.component_id }}-gitops"
         repoVisibility: public
         defaultBranch: main
         sourcePath: ./${{ parameters.owner }}-${{ parameters.component_id }}-gitops
@@ -154,7 +155,7 @@ spec:
         appName: ${{ parameters.component_id }}-bootstrap
         argoInstance: main
         namespace: openshift-gitops
-        repoUrl: https://${{ parameters.repo.host }}/${{ parameters.owner }}/${{ parameters.component_id }}-gitops.git
+        repoUrl: https://${{ parameters.repo.host | replace('https://', '') | replace('http://', '') }}/${{ parameters.owner }}/${{ parameters.component_id }}-gitops.git
         path: argocd/
   output:
     links:

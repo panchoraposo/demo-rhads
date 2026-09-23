@@ -74,7 +74,9 @@
       --exclude '.DS_Store' \
       "{{ repo_root }}/" "${DEST}/"
     cd "${DEST}"
-    perl -pi -e 's/GITLAB_HOST_PLACEHOLDER/{{ gitlab_host }}/g; s/QUAY_HOST_PLACEHOLDER/{{ quay_host }}/g; s/CLUSTER_SUBDOMAIN_PLACEHOLDER/{{ openshift_base_domain }}/g' \
+    # HOST is scheme-stripped. publish:gitlab repoUrl is "host?owner=&repo="; a
+    # https:// prefix makes Backstage look up integration host "https" and fail.
+    perl -pi -e "s/GITLAB_HOST_PLACEHOLDER/${HOST}/g; s/QUAY_HOST_PLACEHOLDER/{{ quay_host | regex_replace('^https?://', '') }}/g; s/CLUSTER_SUBDOMAIN_PLACEHOLDER/{{ openshift_base_domain }}/g" \
       software-templates/quarkus-agentic/template.yaml \
       software-templates/quarkus-hitl/template.yaml \
       software-templates/camel-supervisor/template.yaml \
